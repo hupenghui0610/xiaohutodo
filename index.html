@@ -1019,7 +1019,7 @@
         loginOverlay.classList.add("hidden");
         mainApp.style.display = "";
         var name = getDisplayUsername();
-        currentAccountEl.textContent = name ? "当前账号：" + name : "";
+        currentAccountEl.textContent = name || "";
         if (window.__todoAppInit) window.__todoAppInit();
       }
 

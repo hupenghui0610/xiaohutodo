@@ -43,6 +43,11 @@ function fieldsToFeishu(fields) {
   return result;
 }
 
+// 将时间戳格式化为 YYYY-MM-DD，使用 Asia/Shanghai，与飞书表格展示的“日期”一致，避免 UTC 导致差一天
+function timestampToDateString(ts) {
+  return new Date(ts).toLocaleDateString('en-CA', { timeZone: 'Asia/Shanghai' });
+}
+
 function fieldsFromFeishu(fields) {
   const result = {};
   for (const [key, value] of Object.entries(fields)) {
@@ -50,11 +55,7 @@ function fieldsFromFeishu(fields) {
       if (key === 'createdAt') {
         result[key] = new Date(value).toISOString();
       } else {
-        const d = new Date(value);
-        const y = d.getFullYear();
-        const m = String(d.getMonth() + 1).padStart(2, '0');
-        const dd = String(d.getDate()).padStart(2, '0');
-        result[key] = `${y}-${m}-${dd}`;
+        result[key] = timestampToDateString(value);
       }
     } else {
       result[key] = value;
