@@ -1,0 +1,1789 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>小胡不当牛马</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    :root {
+      --bg: #0f172a;
+      --bg-elevated: #111827;
+      --bg-elevated-softer: #020617;
+      --border-subtle: #1f2937;
+      --accent: #3b82f6;
+      --accent-soft: rgba(59, 130, 246, 0.15);
+      --accent-strong: #2563eb;
+      --text-main: #e5e7eb;
+      --text-muted: #9ca3af;
+      --text-soft: #6b7280;
+      --danger: #f97373;
+      --danger-soft: rgba(248, 113, 113, 0.15);
+      --success: #22c55e;
+      --success-soft: rgba(34, 197, 94, 0.15);
+      --radius-lg: 14px;
+      --radius-md: 10px;
+      --radius-sm: 7px;
+      --shadow-soft: 0 18px 45px rgba(15, 23, 42, 0.7);
+      --shadow-subtle: 0 10px 30px rgba(15, 23, 42, 0.55);
+      --gap-lg: 18px;
+      --gap-md: 12px;
+      --gap-sm: 8px;
+      --transition-fast: 0.15s ease-out;
+      --transition-med: 0.25s ease;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top left, #1e293b 0, #020617 50%, #020617 100%);
+      color: var(--text-main);
+      min-height: 100vh;
+    }
+
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: stretch;
+      padding: 20px;
+    }
+
+    .app {
+      width: 100%;
+      max-width: 1200px;
+      background: radial-gradient(circle at top, #020617 0, #020617 45%, #020617 100%);
+      border-radius: 24px;
+      border: 1px solid rgba(148, 163, 184, 0.12);
+      box-shadow: var(--shadow-soft);
+      padding: 22px 22px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    @media (max-width: 768px) {
+      body {
+        padding: 10px;
+      }
+      .app {
+        padding: 16px 12px 12px;
+        border-radius: 18px;
+      }
+    }
+
+    /* Header */
+
+    .app-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid rgba(31, 41, 55, 0.9);
+    }
+
+    .title-block {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .app-title {
+      font-size: 22px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .app-title-badge {
+      font-size: 11px;
+      padding: 2px 7px 1px;
+      border-radius: 999px;
+      background: rgba(37, 99, 235, 0.15);
+      color: #93c5fd;
+      border: 1px solid rgba(59, 130, 246, 0.5);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .app-subtitle {
+      font-size: 12px;
+      color: var(--text-soft);
+    }
+
+    .week-nav {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(17, 24, 39, 0.82);
+      border-radius: 999px;
+      padding: 5px 10px 5px 12px;
+      border: 1px solid rgba(31, 41, 55, 0.9);
+      box-shadow: var(--shadow-subtle);
+    }
+
+    .week-labels {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      margin-right: 6px;
+    }
+
+    .week-range {
+      font-size: 13px;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    .week-info {
+      font-size: 12px;
+      color: var(--text-soft);
+    }
+
+    .week-nav-buttons {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .btn {
+      border: none;
+      border-radius: 999px;
+      padding: 5px 12px;
+      font-size: 12px;
+      background: rgba(15, 23, 42, 0.9);
+      color: var(--text-muted);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: background var(--transition-fast), color var(--transition-fast), transform 0.1s ease-out, border-color var(--transition-fast), box-shadow var(--transition-fast);
+      border: 1px solid rgba(55, 65, 81, 0.85);
+    }
+
+    .btn:hover {
+      background: rgba(31, 41, 55, 0.95);
+      color: var(--text-main);
+      transform: translateY(-0.5px);
+      box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.4);
+    }
+
+    .btn:active {
+      transform: translateY(0.5px) scale(0.99);
+      box-shadow: none;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #e5f0ff;
+      border-color: rgba(96, 165, 250, 0.9);
+      box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.55), 0 0 22px rgba(37, 99, 235, 0.45);
+    }
+
+    .btn-primary:hover {
+      background: var(--accent-strong);
+      box-shadow: 0 0 0 1px rgba(191, 219, 254, 0.8), 0 0 30px rgba(37, 99, 235, 0.7);
+    }
+
+    .btn-ghost {
+      background: transparent;
+      border-color: transparent;
+      padding-inline: 6px;
+    }
+
+    .btn-icon {
+      padding-inline: 6px;
+      border-radius: 999px;
+      width: 26px;
+      height: 26px;
+      justify-content: center;
+      background: rgba(15, 23, 42, 0.95);
+      border-color: rgba(55, 65, 81, 0.9);
+      color: var(--text-soft);
+      font-size: 14px;
+    }
+
+    .btn-icon:hover {
+      background: rgba(30, 64, 175, 0.9);
+      color: #e5f0ff;
+      border-color: rgba(96, 165, 250, 0.9);
+      box-shadow: 0 0 0 1px rgba(129, 140, 248, 0.8);
+    }
+
+    /* Layout sections */
+
+    .sections {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      margin-top: 4px;
+    }
+
+    .panel {
+      /* A 区：无限期 · 蓝紫暗色 */
+      background: linear-gradient(to right, rgba(56, 189, 248, 0.18) 0%, rgba(15, 23, 42, 0.96) 35%, rgba(15, 23, 42, 1) 100%);
+      border-radius: var(--radius-lg);
+      padding: 16px 18px 14px;
+      border: 1px solid rgba(55, 65, 81, 0.85);
+      box-shadow: var(--shadow-subtle);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .panel--b {
+      /* B 区：周待办 · 绿青暗色 */
+      background: linear-gradient(to right, rgba(34, 197, 94, 0.2) 0%, rgba(15, 23, 42, 0.98) 35%, rgba(15, 23, 42, 1) 100%);
+    }
+
+    .panel--c {
+      /* C 区：日待办 · 紫色暗色 */
+      background: linear-gradient(to right, rgba(147, 51, 234, 0.22) 0%, rgba(15, 23, 42, 0.98) 35%, rgba(15, 23, 42, 1) 100%);
+      padding-bottom: 10px;
+    }
+
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 10px;
+    }
+
+    .panel-title {
+      font-size: 16px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .badge {
+      font-size: 11px;
+      padding: 1px 6px;
+      border-radius: 999px;
+      border: 1px solid rgba(75, 85, 99, 0.9);
+      background: rgba(15, 23, 42, 0.9);
+      color: var(--text-soft);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .badge-soft {
+      background: rgba(37, 99, 235, 0.12);
+      border-color: rgba(59, 130, 246, 0.7);
+      color: #93c5fd;
+    }
+
+    .panel-desc {
+      font-size: 12px;
+      color: var(--text-soft);
+    }
+
+    .count-pill {
+      font-size: 12px;
+      color: var(--text-soft);
+    }
+
+    /* Forms */
+
+    .form-inline {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      margin-top: 2px;
+    }
+
+    .input {
+      background: rgba(15, 23, 42, 0.95);
+      border-radius: 999px;
+      border: 1px solid rgba(55, 65, 81, 0.95);
+      padding: 7px 12px;
+      color: var(--text-main);
+      font-size: 13px;
+      outline: none;
+      min-width: 0;
+      transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast), transform 0.1s ease-out;
+    }
+
+    .input::placeholder {
+      color: var(--text-soft);
+    }
+
+    .input:focus {
+      border-color: rgba(96, 165, 250, 0.9);
+      box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.8), 0 0 18px rgba(37, 99, 235, 0.5);
+      background: rgba(15, 23, 42, 0.98);
+      transform: translateY(-0.5px);
+    }
+
+    .input-text {
+      flex: 1;
+      min-width: 140px;
+    }
+
+    .input-date,
+    .input-time {
+      font-family: inherit;
+    }
+
+    .input-date {
+      width: 130px;
+    }
+
+    .input-time {
+      width: 92px;
+    }
+
+    .chip-filter {
+      font-size: 12px;
+      color: var(--text-soft);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .chip-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: rgba(59, 130, 246, 0.7);
+      box-shadow: 0 0 10px #2563ebcc;
+    }
+
+    /* Lists */
+
+    .todo-list {
+      list-style: none;
+      padding: 0;
+      margin: 4px 0 0;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 240px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .todo-item {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 7px 10px;
+      border-radius: var(--radius-md);
+      background: linear-gradient(90deg, rgba(15, 23, 42, 0.95), rgba(15, 23, 42, 0.9));
+      border: 1px solid rgba(31, 41, 55, 0.95);
+      transition: background var(--transition-med), transform 0.12s ease-out, box-shadow var(--transition-fast), border-color var(--transition-fast);
+      cursor: default;
+    }
+
+    .todo-item:hover {
+      background: linear-gradient(90deg, rgba(17, 24, 39, 1), rgba(30, 64, 175, 0.25));
+      transform: translateY(-0.5px);
+      box-shadow: 0 12px 26px rgba(15, 23, 42, 0.9);
+      border-color: rgba(55, 65, 81, 0.95);
+    }
+
+    .todo-item.done {
+      opacity: 0.72;
+      background: linear-gradient(90deg, rgba(15, 23, 42, 0.98), rgba(22, 101, 52, 0.15));
+      border-color: rgba(34, 197, 94, 0.4);
+    }
+
+    .todo-item-overdue {
+      background: linear-gradient(90deg, rgba(15, 23, 42, 0.98), rgba(185, 28, 28, 0.2));
+      border-color: rgba(248, 113, 113, 0.7);
+    }
+
+    .todo-item-overdue .todo-title {
+      color: #fecaca;
+    }
+
+    .todo-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .todo-checkbox {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    .todo-title-block {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+
+    .todo-title {
+      font-size: 14px;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      white-space: normal;
+    }
+
+    .todo-title.done {
+      text-decoration: line-through;
+      color: var(--text-soft);
+    }
+
+    .todo-meta {
+      font-size: 12px;
+      color: var(--text-soft);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .todo-tag {
+      border-radius: 999px;
+      padding: 0 6px;
+      border: 1px solid rgba(75, 85, 99, 0.95);
+      background: rgba(15, 23, 42, 0.95);
+    }
+
+    /* 周待办（B 区）状态标签字号略小一些 */
+    #sectionB .todo-tag {
+      font-size: 11px;
+      padding: 0 6px;
+    }
+
+    .todo-tag-success {
+      background: var(--success-soft);
+      border-color: rgba(34, 197, 94, 0.9);
+      color: #bbf7d0;
+    }
+
+    .todo-tag-danger {
+      background: var(--danger-soft);
+      border-color: rgba(248, 113, 113, 0.9);
+      color: #fecaca;
+    }
+
+    .todo-actions {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .btn-small {
+      padding: 3px 8px;
+      font-size: 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(55, 65, 81, 0.95);
+      background: rgba(15, 23, 42, 0.98);
+      color: var(--text-soft);
+      cursor: pointer;
+      transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast), transform 0.1s ease-out;
+    }
+
+    .btn-small:hover {
+      background: rgba(31, 41, 55, 0.98);
+      color: #fecaca;
+      border-color: rgba(248, 113, 113, 0.9);
+      transform: translateY(-0.5px);
+    }
+
+    /* B section columns */
+
+    .b-columns {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 4px;
+    }
+
+    @media (max-width: 900px) {
+      .b-columns {
+        grid-template-columns: repeat(1, minmax(0, 1fr));
+      }
+    }
+
+    .b-column {
+      background: rgba(15, 23, 42, 0.95);
+      border-radius: var(--radius-md);
+      border: 1px solid rgba(31, 41, 55, 0.95);
+      padding: 9px 10px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .b-column-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 6px;
+    }
+
+    .b-column-title {
+      font-size: 13px;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+    }
+
+    .dot-pending { background: #facc15; box-shadow: 0 0 12px rgba(250, 204, 21, 0.7); }
+    .dot-done { background: #22c55e; box-shadow: 0 0 12px rgba(34, 197, 94, 0.7); }
+    .dot-expired { background: #f97373; box-shadow: 0 0 12px rgba(248, 113, 113, 0.8); }
+
+    .b-column-hint {
+      font-size: 12px;
+      color: var(--text-soft);
+    }
+
+    /* C section week view */
+
+    .week-strip {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    .week-strip-label {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .week-days-header {
+      /* 不再单独显示顶部“03/02 一”这些小框 */
+      display: none;
+    }
+
+    .week-day-header {
+      text-align: center;
+      padding: 3px 2px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.98);
+      border: 1px solid rgba(31, 41, 55, 0.95);
+    }
+
+    .week-day-header-today {
+      border-color: rgba(59, 130, 246, 0.9);
+      box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.85), 0 0 16px rgba(37, 99, 235, 0.7);
+      color: #bfdbfe;
+    }
+
+    .week-grid-wrapper {
+      overflow-x: auto;
+      padding-bottom: 4px;
+      margin-bottom: -4px;
+    }
+
+    .week-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(200px, 1fr)); /* 两行布局：6 天分成两行 */
+      gap: 8px;
+      min-width: 100%;
+    }
+
+    @media (max-width: 960px) {
+      .week-grid {
+        grid-template-columns: repeat(2, minmax(160px, 1fr)); /* 小屏时 2 列，自动多行 */
+      }
+    }
+
+    .day-column {
+      background: rgba(15, 23, 42, 0.98);
+      border-radius: var(--radius-md);
+      border: 1px solid rgba(31, 41, 55, 0.95);
+      padding: 8px 9px 7px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .day-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--text-soft);
+    }
+
+    .day-header-main {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+
+    .day-date {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .day-today-pill {
+      display: inline-block;
+      font-size: 11px;
+      padding: 0 6px;
+      border-radius: 999px;
+      border: 1px solid rgba(59, 130, 246, 0.9);
+      color: #bfdbfe;
+      background: rgba(37, 99, 235, 0.3);
+      margin-left: 4px;
+    }
+
+    .day-count {
+      font-size: 12px;
+      color: var(--text-soft);
+    }
+
+    .day-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      max-height: 150px;
+      overflow-y: auto;
+      padding-right: 2px;
+    }
+
+    .day-form {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin-top: 3px;
+    }
+
+    .day-form .input {
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 12px;
+    }
+
+    .day-form .input-text {
+      flex: 1 1 80px;
+      min-width: 0;
+    }
+
+    .day-form .input-time {
+      flex: 0 0 70px;
+    }
+
+    .btn-day-add {
+      padding: 5px 10px;
+      font-size: 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(55, 65, 81, 0.9);
+      background: rgba(15, 23, 42, 0.95);
+      color: var(--text-soft);
+      cursor: pointer;
+      transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast), transform 0.1s ease-out;
+      white-space: nowrap;
+    }
+
+    .btn-day-add:hover {
+      background: rgba(30, 64, 175, 0.85);
+      color: #e5f0ff;
+      border-color: rgba(96, 165, 250, 0.9);
+      transform: translateY(-0.5px);
+      box-shadow: 0 0 0 1px rgba(129, 140, 248, 0.9);
+    }
+
+    /* Footer */
+
+    .app-footer {
+      margin-top: 4px;
+      padding-top: 6px;
+      border-top: 1px solid rgba(31, 41, 55, 0.9);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      color: var(--text-soft);
+      gap: 8px;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .legend-color {
+      width: 10px;
+      height: 10px;
+      border-radius: 3px;
+      border: 1px solid rgba(55, 65, 81, 0.9);
+    }
+
+    .legend-color-a { background: rgba(37, 99, 235, 0.4); }
+    .legend-color-b { background: rgba(22, 163, 74, 0.4); }
+    .legend-color-c { background: rgba(30, 64, 175, 0.5); }
+
+    /* Login overlay */
+
+    .login-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 1000;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: radial-gradient(circle at top left, #1e293b 0, #020617 50%, #020617 100%);
+      transition: opacity 0.35s ease, visibility 0.35s ease;
+    }
+
+    .login-overlay.hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .login-card {
+      width: 100%;
+      max-width: 380px;
+      background: rgba(15, 23, 42, 0.92);
+      border-radius: 20px;
+      border: 1px solid rgba(148, 163, 184, 0.12);
+      box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6), 0 0 80px rgba(37, 99, 235, 0.08);
+      padding: 40px 32px 36px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .login-logo {
+      width: 56px;
+      height: 56px;
+      border-radius: 16px;
+      background: linear-gradient(135deg, var(--accent) 0%, #7c3aed 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 26px;
+      margin-bottom: 8px;
+      box-shadow: 0 0 32px rgba(59, 130, 246, 0.35);
+    }
+
+    .login-title {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      color: var(--text-main);
+    }
+
+    .login-subtitle {
+      font-size: 13px;
+      color: var(--text-soft);
+      margin-bottom: 20px;
+    }
+
+    .login-form {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .login-input {
+      width: 100%;
+      border-radius: var(--radius-md) !important;
+      padding: 10px 14px !important;
+      font-size: 14px !important;
+      background: rgba(15, 23, 42, 0.98);
+    }
+
+    .login-btn {
+      display: flex;
+      justify-content: center;
+      width: 100%;
+      padding: 10px 0 !important;
+      font-size: 14px !important;
+      border-radius: var(--radius-md) !important;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      margin-top: 4px;
+    }
+
+    .login-error {
+      font-size: 12px;
+      color: var(--danger);
+      min-height: 18px;
+      text-align: center;
+      transition: opacity var(--transition-fast);
+    }
+
+    .btn-logout {
+      padding: 5px 12px;
+      font-size: 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(55, 65, 81, 0.85);
+      background: rgba(15, 23, 42, 0.9);
+      color: var(--text-soft);
+      cursor: pointer;
+      transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+      white-space: nowrap;
+    }
+
+    .btn-logout:hover {
+      background: rgba(127, 29, 29, 0.5);
+      color: #fecaca;
+      border-color: rgba(248, 113, 113, 0.7);
+    }
+
+    .footer-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .current-account {
+      font-size: 12px;
+      color: var(--text-soft);
+      max-width: 120px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    @media (max-width: 768px) {
+      .login-card {
+        margin: 0 16px;
+        padding: 32px 20px 28px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Login overlay -->
+  <div class="login-overlay" id="loginOverlay">
+    <div class="login-card">
+      <div class="login-logo">✓</div>
+      <div class="login-title">小胡同学To-do List</div>
+      <div class="login-subtitle">请登录以继续使用</div>
+      <div class="login-form">
+        <input id="loginUsername" class="input login-input" type="text" placeholder="请输入账号" autocomplete="username" />
+        <input id="loginPassword" class="input login-input" type="password" placeholder="请输入密码" autocomplete="current-password" />
+        <div class="login-error" id="loginError"></div>
+        <button class="btn btn-primary login-btn" id="loginBtn">登 录</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="app" id="mainApp" style="display:none;">
+    <header class="app-header">
+      <div class="title-block">
+        <div class="app-title">
+          小胡同学To-do List
+        </div>
+      </div>
+      <div class="week-nav">
+        <div class="week-labels">
+          <div id="weekRangeText" class="week-range"></div>
+          <div id="weekExtraInfo" class="week-info"></div>
+        </div>
+        <div class="week-nav-buttons">
+          <button class="btn btn-icon" id="prevWeekBtn" title="上一周">‹</button>
+          <button class="btn btn-ghost" id="thisWeekBtn">本周</button>
+          <button class="btn btn-icon" id="nextWeekBtn" title="下一周">›</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="sections">
+      <!-- A 区：无限期 -->
+      <section class="panel" id="sectionA">
+        <div class="panel-header">
+          <div>
+            <div class="panel-title">
+              无限期
+            </div>
+          </div>
+          <div class="count-pill" id="countA"></div>
+        </div>
+        <div class="form-inline">
+          <input id="inputATitle" class="input input-text" type="text" placeholder="输入待办..." />
+          <button id="addABtn" class="btn btn-primary">添加</button>
+        </div>
+        <ul id="listA" class="todo-list"></ul>
+      </section>
+
+      <!-- B 区：周待办（按周，不按具体日期） -->
+      <section class="panel panel--b" id="sectionB">
+        <div class="panel-header">
+          <div>
+            <div class="panel-title">
+              周待办
+            </div>
+          </div>
+          <div class="count-pill" id="countB"></div>
+        </div>
+        <div class="form-inline">
+          <input id="inputBTitle" class="input input-text" type="text" placeholder="输入待办..." />
+          <button id="addBBtn" class="btn btn-primary">添加</button>
+        </div>
+        <ul id="listB" class="todo-list"></ul>
+      </section>
+
+      <!-- C 区：日待办（按本周每天展示） -->
+      <section class="panel panel--c" id="sectionC">
+        <div class="panel-header">
+          <div>
+            <div class="panel-title">
+              日待办
+            </div>
+          </div>
+          <div class="count-pill" id="countC"></div>
+        </div>
+
+        <div class="week-days-header" id="weekDaysHeader"></div>
+
+        <div class="week-grid-wrapper">
+          <div class="week-grid" id="weekGrid"></div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="app-footer">
+      <div class="legend">
+        <div class="legend-item">
+          <span class="legend-color legend-color-a"></span>
+          <span>无限期</span>
+        </div>
+        <div class="legend-item">
+          <span class="legend-color legend-color-b"></span>
+          <span>周待办</span>
+        </div>
+        <div class="legend-item">
+          <span class="legend-color legend-color-c"></span>
+          <span>日待办</span>
+        </div>
+      </div>
+      <div class="footer-right">
+        <span class="current-account" id="currentAccount"></span>
+        <button class="btn-logout" id="logoutBtn" title="退出登录">退出</button>
+      </div>
+    </footer>
+  </div>
+
+  <script src="feishu-storage.js"></script>
+  <script>
+    (function () {
+      const AUTH_TOKEN_KEY = "auth_token";
+      const AUTH_USERNAME_KEY = "auth_username";
+      const loginOverlay = document.getElementById("loginOverlay");
+      const mainApp = document.getElementById("mainApp");
+      const loginBtn = document.getElementById("loginBtn");
+      const loginUsername = document.getElementById("loginUsername");
+      const loginPassword = document.getElementById("loginPassword");
+      const loginError = document.getElementById("loginError");
+      const logoutBtn = document.getElementById("logoutBtn");
+      const currentAccountEl = document.getElementById("currentAccount");
+
+      function getToken() {
+        return localStorage.getItem(AUTH_TOKEN_KEY);
+      }
+
+      function getDisplayUsername() {
+        var stored = localStorage.getItem(AUTH_USERNAME_KEY);
+        if (stored) return stored;
+        var token = getToken();
+        if (token && token.indexOf(":") !== -1) return token.substring(0, token.indexOf(":"));
+        return "";
+      }
+
+      function showApp() {
+        loginOverlay.classList.add("hidden");
+        mainApp.style.display = "";
+        var name = getDisplayUsername();
+        currentAccountEl.textContent = name ? "当前账号：" + name : "";
+        if (window.__todoAppInit) window.__todoAppInit();
+      }
+
+      function showLogin() {
+        loginOverlay.classList.remove("hidden");
+        mainApp.style.display = "none";
+        loginError.textContent = "";
+        loginUsername.value = "";
+        loginPassword.value = "";
+      }
+
+      async function handleLogin() {
+        const username = (loginUsername.value || "").trim();
+        const password = loginPassword.value || "";
+        loginError.textContent = "";
+
+        if (!username || !password) {
+          loginError.textContent = "请输入账号和密码";
+          return;
+        }
+
+        loginBtn.disabled = true;
+        loginBtn.textContent = "登录中...";
+
+        try {
+          const resp = await fetch("/api/login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username, password })
+          });
+
+          const data = await resp.json();
+
+          if (resp.ok && data.token) {
+            localStorage.setItem(AUTH_TOKEN_KEY, data.token);
+            if (data.username) localStorage.setItem(AUTH_USERNAME_KEY, data.username);
+            showApp();
+          } else {
+            loginError.textContent = data.error || "登录失败，请检查账号密码";
+          }
+        } catch (e) {
+          loginError.textContent = "网络错误，请稍后重试";
+        } finally {
+          loginBtn.disabled = false;
+          loginBtn.textContent = "登 录";
+        }
+      }
+
+      loginBtn.addEventListener("click", handleLogin);
+      loginPassword.addEventListener("keydown", function (e) {
+        if (e.key === "Enter") { e.preventDefault(); handleLogin(); }
+      });
+      loginUsername.addEventListener("keydown", function (e) {
+        if (e.key === "Enter") { e.preventDefault(); loginPassword.focus(); }
+      });
+
+      logoutBtn.addEventListener("click", function () {
+        localStorage.removeItem(AUTH_TOKEN_KEY);
+        localStorage.removeItem(AUTH_USERNAME_KEY);
+        showLogin();
+      });
+
+      if (getToken()) {
+        showApp();
+      } else {
+        showLogin();
+      }
+    })();
+  </script>
+  <script>
+    (function () {
+      const STORAGE_KEY = "personal_todos_v1";
+
+      let todos = [];
+      let currentWeekStart = getWeekStart(new Date()); // 当前「查看周」的周一
+      const today = stripTime(new Date());
+      const todayWeekStart = getWeekStart(today);
+
+      // 工具函数：时间 & 日期处理 -------------------------------------
+
+      function stripTime(date) {
+        const d = new Date(date);
+        d.setHours(0, 0, 0, 0);
+        return d;
+      }
+
+      function formatYMD(date) {
+        const d = stripTime(date);
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, "0");
+        const dd = String(d.getDate()).padStart(2, "0");
+        return y + "-" + m + "-" + dd;
+      }
+
+      function parseYMD(str) {
+        // "YYYY-MM-DD" -> Date
+        const [y, m, d] = str.split("-").map(Number);
+        return stripTime(new Date(y, m - 1, d));
+      }
+
+      function getWeekStart(date) {
+        const d = stripTime(date);
+        let day = d.getDay(); // 0 周日, 1 周一, ...
+        const diff = day === 0 ? -6 : 1 - day; // 以周一为一周开始
+        d.setDate(d.getDate() + diff);
+        return d;
+      }
+
+      function addDays(date, days) {
+        const d = new Date(date);
+        d.setDate(d.getDate() + days);
+        return stripTime(d);
+      }
+
+      function getWeekDates(weekStartDate) {
+        const dates = [];
+        for (let i = 0; i < 7; i++) {
+          dates.push(addDays(weekStartDate, i));
+        }
+        return dates;
+      }
+
+      function isSameDay(date1, date2) {
+        return formatYMD(date1) === formatYMD(date2);
+      }
+
+      function isSameWeek(start1, start2) {
+        return formatYMD(start1) === formatYMD(start2);
+      }
+
+      function compareDateStr(a, b) {
+        if (a === b) return 0;
+        return a < b ? -1 : 1;
+      }
+
+      function formatHumanDate(ymd, withWeekday = true) {
+        const d = parseYMD(ymd);
+        const m = String(d.getMonth() + 1).padStart(2, "0");
+        const day = String(d.getDate()).padStart(2, "0");
+        if (!withWeekday) return m + "/" + day;
+        const weekdays = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
+        return m + "/" + day + " " + weekdays[d.getDay()];
+      }
+
+      // 本地存储 --------------------------------------------------------
+
+      async function loadTodos() {
+        try {
+          // 从飞书加载数据
+          todos = await FeishuStorage.loadTodos();
+        } catch (e) {
+          console.error("加载待办失败:", e);
+          todos = [];
+          alert("从飞书加载数据失败，请检查网络连接");
+        }
+      }
+
+      // 规范化 B 类待办（老数据迁移 + 按当前时间顺延未完成项）
+      function normalizeBTodos() {
+        let changed = false;
+        todos.forEach((t) => {
+          if (t.type !== "B") return;
+
+          // 老版本数据迁移：没有 weekStart 的用原来的 date 或创建时间推算
+          if (!t.weekStart) {
+            if (t.date) {
+              const d = parseYMD(t.date);
+              t.weekStart = formatYMD(getWeekStart(d));
+            } else if (t.createdAt) {
+              const d = new Date(t.createdAt);
+              t.weekStart = formatYMD(getWeekStart(d));
+            } else {
+              t.weekStart = formatYMD(todayWeekStart);
+            }
+            changed = true;
+          }
+
+          // 已完成的 B 类不再顺延
+          if (t.done) {
+            if (t.delayed) {
+              t.delayed = false;
+              changed = true;
+            }
+            return;
+          }
+
+          // 未完成：如果周起始早于当前周起始，则向后按周顺延，并标记为延迟
+          let wsDate = parseYMD(t.weekStart);
+          if (wsDate < todayWeekStart) {
+            while (wsDate < todayWeekStart) {
+              wsDate = addDays(wsDate, 7);
+            }
+            t.weekStart = formatYMD(wsDate);
+            t.delayed = true;
+            changed = true;
+          }
+        });
+
+        if (changed) {
+          saveTodos();
+        }
+      }
+
+      async function saveTodos() {
+        try {
+          // 保存到飞书
+          const success = await FeishuStorage.saveTodos(todos);
+          if (!success) {
+            alert("保存到飞书时出错，请稍后重试。");
+          }
+        } catch (e) {
+          console.error("保存待办失败:", e);
+          alert("保存到飞书时出错，请检查网络连接。");
+        }
+      }
+
+      function createId() {
+        return "todo_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 8);
+      }
+
+      // DOM 获取 --------------------------------------------------------
+
+      const weekRangeTextEl = document.getElementById("weekRangeText");
+      const weekExtraInfoEl = document.getElementById("weekExtraInfo");
+      const weekDaysHeaderEl = document.getElementById("weekDaysHeader");
+      const weekGridEl = document.getElementById("weekGrid");
+
+      const prevWeekBtn = document.getElementById("prevWeekBtn");
+      const nextWeekBtn = document.getElementById("nextWeekBtn");
+      const thisWeekBtn = document.getElementById("thisWeekBtn");
+
+      const inputATitle = document.getElementById("inputATitle");
+      const addABtn = document.getElementById("addABtn");
+      const listA = document.getElementById("listA");
+      const countA = document.getElementById("countA");
+
+      const inputBTitle = document.getElementById("inputBTitle");
+      const addBBtn = document.getElementById("addBBtn");
+      const countB = document.getElementById("countB");
+      const listB = document.getElementById("listB");
+
+      const countC = document.getElementById("countC");
+
+      // 事件绑定 --------------------------------------------------------
+
+      prevWeekBtn.addEventListener("click", () => {
+        currentWeekStart = addDays(currentWeekStart, -7);
+        renderAll();
+      });
+
+      nextWeekBtn.addEventListener("click", () => {
+        currentWeekStart = addDays(currentWeekStart, 7);
+        renderAll();
+      });
+
+      thisWeekBtn.addEventListener("click", () => {
+        currentWeekStart = getWeekStart(today);
+        renderAll();
+      });
+
+      addABtn.addEventListener("click", () => {
+        const title = (inputATitle.value || "").trim();
+        if (!title) {
+          inputATitle.focus();
+          return;
+        }
+        todos.push({
+          id: createId(),
+          type: "A",
+          title,
+          done: false,
+          createdAt: new Date().toISOString()
+        });
+        inputATitle.value = "";
+        saveTodos();
+        renderAll();
+      });
+
+      inputATitle.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          addABtn.click();
+        }
+      });
+
+      addBBtn.addEventListener("click", () => {
+        const title = (inputBTitle.value || "").trim();
+        if (!title) {
+          inputBTitle.focus();
+          return;
+        }
+        todos.push({
+          id: createId(),
+          type: "B",
+          title,
+          done: false,
+          createdAt: new Date().toISOString(),
+          weekStart: formatYMD(currentWeekStart),
+          delayed: false
+        });
+        inputBTitle.value = "";
+        saveTodos();
+        renderAll();
+      });
+
+      inputBTitle.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          addBBtn.click();
+        }
+      });
+
+      // 通用操作：切换完成状态 & 删除 & 编辑 ------------------------------------
+
+      function toggleTodoDone(id) {
+        const t = todos.find((x) => x.id === id);
+        if (!t) return;
+        t.done = !t.done;
+        saveTodos();
+        renderAll();
+      }
+
+      async function deleteTodo(id) {
+        const idx = todos.findIndex((x) => x.id === id);
+        if (idx === -1) return;
+        const removed = todos.splice(idx, 1)[0];
+        renderAll();
+        const success = await saveTodos();
+        if (success) return;
+        // 请求未确认成功时，再拉一次列表校验：若服务端已删则以服务器为准，避免无效提示
+        try {
+          const fresh = await FeishuStorage.loadTodos();
+          const stillThere = fresh.some((t) => t.id === removed.id);
+          if (stillThere) {
+            todos.splice(idx, 0, removed);
+            renderAll();
+            alert('删除失败，请稍后重试。');
+          } else {
+            todos.length = 0;
+            todos.push(...fresh);
+            renderAll();
+          }
+        } catch (e) {
+          todos.splice(idx, 0, removed);
+          renderAll();
+          alert('删除失败，请稍后重试。');
+        }
+      }
+
+      function editTodoTitle(id, titleElement) {
+        const t = todos.find((x) => x.id === id);
+        if (!t) return;
+
+        const oldTitle = t.title;
+        
+        // 找到整个 todo-left 容器
+        const todoLeft = titleElement.closest('.todo-left');
+        if (!todoLeft) return;
+        
+        // 保存原始内容
+        const originalHTML = todoLeft.innerHTML;
+        
+        // 创建输入框
+        const input = document.createElement("input");
+        input.type = "text";
+        input.value = oldTitle;
+        input.className = "input";
+        input.style.flex = "1";
+        input.style.minWidth = "0";
+        input.style.fontSize = "13px";
+        input.style.padding = "6px 10px";
+        input.style.margin = "0";
+        
+        // 清空 todo-left 并添加输入框
+        todoLeft.innerHTML = "";
+        todoLeft.appendChild(input);
+        
+        input.focus();
+        input.select();
+
+        function saveEdit() {
+          const newTitle = (input.value || "").trim();
+          if (newTitle && newTitle !== oldTitle) {
+            t.title = newTitle;
+            saveTodos();
+          }
+          renderAll();
+        }
+
+        input.addEventListener("blur", saveEdit);
+        input.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            saveEdit();
+          } else if (e.key === "Escape") {
+            renderAll();
+          }
+        });
+      }
+
+      // UI 渲染 ---------------------------------------------------------
+
+      function renderHeader() {
+        const weekDates = getWeekDates(currentWeekStart);
+        const startStr = formatYMD(weekDates[0]);
+        const endStr = formatYMD(weekDates[6]);
+        weekRangeTextEl.textContent = `${startStr}  ~  ${endStr}`;
+
+        if (isSameWeek(currentWeekStart, todayWeekStart)) {
+          weekExtraInfoEl.textContent = "当前视图：本周（今天已高亮）";
+        } else if (currentWeekStart < todayWeekStart) {
+          weekExtraInfoEl.textContent = "当前视图：历史周";
+        } else {
+          weekExtraInfoEl.textContent = "当前视图：未来周";
+        }
+      }
+
+      function renderASection() {
+        const list = todos.filter((t) => t.type === "A");
+        countA.textContent = list.length ? `共 ${list.length} 条` : "";
+        listA.innerHTML = "";
+        if (!list.length) return;
+
+        list.sort((a, b) => (a.createdAt || "").localeCompare(b.createdAt || ""));
+
+        list.forEach((todo) => {
+          const li = document.createElement("li");
+          li.className = "todo-item" + (todo.done ? " done" : "");
+
+          const left = document.createElement("div");
+          left.className = "todo-left";
+
+          const checkbox = document.createElement("input");
+          checkbox.type = "checkbox";
+          checkbox.className = "todo-checkbox";
+          checkbox.checked = !!todo.done;
+          checkbox.addEventListener("change", () => toggleTodoDone(todo.id));
+
+          const titleBlock = document.createElement("div");
+          titleBlock.className = "todo-title-block";
+
+          const title = document.createElement("div");
+          title.className = "todo-title" + (todo.done ? " done" : "");
+          title.textContent = todo.title;
+          title.style.cursor = "pointer";
+          title.addEventListener("dblclick", () => editTodoTitle(todo.id, title));
+
+          titleBlock.appendChild(title);
+
+          left.appendChild(checkbox);
+          left.appendChild(titleBlock);
+
+          const actions = document.createElement("div");
+          actions.className = "todo-actions";
+
+          const delBtn = document.createElement("button");
+          delBtn.className = "btn-small";
+          delBtn.textContent = "删除";
+          delBtn.addEventListener("click", () => deleteTodo(todo.id));
+
+          actions.appendChild(delBtn);
+
+          li.appendChild(left);
+          li.appendChild(actions);
+
+          listA.appendChild(li);
+        });
+      }
+
+      function renderBSection() {
+        const currentWeekStr = formatYMD(currentWeekStart);
+
+        // 当前查看周的 B 类待办（按周统计）
+        const listInWeek = todos.filter(
+          (t) => t.type === "B" && t.weekStart === currentWeekStr
+        );
+
+        countB.textContent = listInWeek.length ? `共 ${listInWeek.length} 条` : "";
+
+        listB.innerHTML = "";
+        if (!listInWeek.length) return;
+
+        listInWeek
+          .slice()
+          .sort((a, b) => (a.createdAt || "").localeCompare(b.createdAt || ""))
+          .forEach((todo) => {
+            const li = document.createElement("li");
+            let cls = "todo-item";
+            if (todo.done) cls += " done";
+            if (!todo.done && todo.delayed) cls += " todo-item-overdue";
+            li.className = cls;
+
+            const left = document.createElement("div");
+            left.className = "todo-left";
+
+            const statusTag = document.createElement("span");
+            statusTag.className = "todo-tag";
+            if (todo.done) {
+              statusTag.classList.add("todo-tag-success");
+              statusTag.textContent = "已完成";
+            } else if (todo.delayed) {
+              statusTag.classList.add("todo-tag-danger");
+              statusTag.textContent = "延迟";
+            } else {
+              statusTag.textContent = "进行中";
+            }
+
+            const checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.className = "todo-checkbox";
+            checkbox.checked = !!todo.done;
+            checkbox.addEventListener("change", () => toggleTodoDone(todo.id));
+
+            const titleBlock = document.createElement("div");
+            titleBlock.className = "todo-title-block";
+
+            const title = document.createElement("div");
+            title.className = "todo-title" + (todo.done ? " done" : "");
+            title.textContent = todo.title;
+            title.style.cursor = "pointer";
+            title.addEventListener("dblclick", () => editTodoTitle(todo.id, title));
+
+            titleBlock.appendChild(title);
+
+            left.appendChild(statusTag);
+            left.appendChild(checkbox);
+            left.appendChild(titleBlock);
+
+            const actions = document.createElement("div");
+            actions.className = "todo-actions";
+
+            const delBtn = document.createElement("button");
+            delBtn.className = "btn-small";
+            delBtn.textContent = "删除";
+            delBtn.addEventListener("click", () => deleteTodo(todo.id));
+
+            actions.appendChild(delBtn);
+
+            li.appendChild(left);
+            li.appendChild(actions);
+
+            listB.appendChild(li);
+          });
+      }
+
+      function renderCSection() {
+        const weekDates = getWeekDates(currentWeekStart);
+        const weekStartStr = formatYMD(weekDates[0]);
+        const weekEndStr = formatYMD(weekDates[6]);
+        const todayStr = formatYMD(today);
+
+        weekDaysHeaderEl.innerHTML = "";
+        weekGridEl.innerHTML = "";
+
+        const weekdaysShort = ["日", "一", "二", "三", "四", "五", "六"];
+
+        // 统计当前查看周内 C 类数量
+        const allC = todos.filter((t) => t.type === "C");
+        const thisWeekC = allC.filter(
+          (t) => t.date && compareDateStr(t.date, weekStartStr) >= 0 && compareDateStr(t.date, weekEndStr) <= 0
+        );
+        countC.textContent = thisWeekC.length ? `共 ${thisWeekC.length} 条` : "";
+
+        // 按「周一~周五 + 周末」6 个分组显示
+        const groups = [
+          { type: "weekday", dates: [weekDates[0]] }, // 周一
+          { type: "weekday", dates: [weekDates[1]] }, // 周二
+          { type: "weekday", dates: [weekDates[2]] }, // 周三
+          { type: "weekday", dates: [weekDates[3]] }, // 周四
+          { type: "weekday", dates: [weekDates[4]] }, // 周五
+          { type: "weekend", dates: [weekDates[5], weekDates[6]] } // 周末：周六+周日
+        ];
+
+        groups.forEach((group) => {
+          const isWeekend = group.type === "weekend";
+          const d0 = group.dates[0];
+          const ymd0 = formatYMD(d0);
+          const isToday =
+            !isWeekend
+              ? ymd0 === todayStr
+              : todayStr === formatYMD(group.dates[0]) || todayStr === formatYMD(group.dates[1]);
+
+          // 正文列
+          const column = document.createElement("div");
+          column.className = "day-column";
+
+          const header = document.createElement("div");
+          header.className = "day-header";
+
+          const headerMain = document.createElement("div");
+          headerMain.className = "day-header-main";
+
+          const dateSpan = document.createElement("div");
+          dateSpan.className = "day-date";
+
+          let createDate = ymd0;
+          if (!isWeekend) {
+            // 在日期旁边直接注明周几，例如：2026-03-02 周一
+            dateSpan.textContent = `${ymd0} 周${weekdaysShort[d0.getDay()]}`;
+          } else {
+            const d1 = group.dates[1];
+            const ymd1 = formatYMD(d1);
+            const sameYear = d0.getFullYear() === d1.getFullYear();
+            const endLabel = sameYear ? ymd1.substring(5) : ymd1;
+            // 周末区间 + “周末”文字
+            dateSpan.textContent = `${ymd0} ~ ${endLabel} 周末`;
+            createDate = ymd0; // 新建周末任务默认落在周六
+          }
+
+          const todayPill = document.createElement("div");
+          if (isToday) {
+            todayPill.className = "day-today-pill";
+            todayPill.textContent = "今天";
+          }
+
+          headerMain.appendChild(dateSpan);
+          if (isToday) dateSpan.appendChild(todayPill);
+
+          const dayTodos = thisWeekC.filter((t) =>
+            !isWeekend ? t.date === ymd0 : t.date === formatYMD(group.dates[0]) || t.date === formatYMD(group.dates[1])
+          );
+
+          const countSpan = document.createElement("div");
+          countSpan.className = "day-count";
+          countSpan.textContent = dayTodos.length ? `${dayTodos.length} 条` : "暂无待办";
+
+          header.appendChild(headerMain);
+          header.appendChild(countSpan);
+
+          const dayList = document.createElement("ul");
+          dayList.className = "day-list";
+
+          if (dayTodos.length) {
+            dayTodos
+              .slice()
+              .sort((a, b) => {
+                const ta = a.time || "99:99";
+                const tb = b.time || "99:99";
+                if (ta === tb) return (a.createdAt || "").localeCompare(b.createdAt || "");
+                return ta.localeCompare(tb);
+              })
+              .forEach((todo) => {
+                const li = document.createElement("li");
+                let cls = "todo-item";
+                if (todo.done) cls += " done";
+                li.className = cls;
+
+                const left = document.createElement("div");
+                left.className = "todo-left";
+
+                const checkbox = document.createElement("input");
+                checkbox.type = "checkbox";
+                checkbox.className = "todo-checkbox";
+                checkbox.checked = !!todo.done;
+                checkbox.addEventListener("change", () => toggleTodoDone(todo.id));
+
+                const titleBlock = document.createElement("div");
+                titleBlock.className = "todo-title-block";
+
+                const title = document.createElement("div");
+                title.className = "todo-title" + (todo.done ? " done" : "");
+                title.textContent = todo.title;
+                title.style.cursor = "pointer";
+                title.addEventListener("dblclick", () => editTodoTitle(todo.id, title));
+
+                titleBlock.appendChild(title);
+
+                left.appendChild(checkbox);
+                left.appendChild(titleBlock);
+
+                const actions = document.createElement("div");
+                actions.className = "todo-actions";
+
+                const delBtn = document.createElement("button");
+                delBtn.className = "btn-small";
+                delBtn.textContent = "删除";
+                delBtn.addEventListener("click", () => deleteTodo(todo.id));
+
+                actions.appendChild(delBtn);
+
+                li.appendChild(left);
+                li.appendChild(actions);
+
+                dayList.appendChild(li);
+              });
+          }
+
+          const form = document.createElement("div");
+          form.className = "day-form";
+
+          const titleInput = document.createElement("input");
+          titleInput.type = "text";
+          titleInput.placeholder = "输入待办...";
+          titleInput.className = "input input-text";
+
+          const addBtn = document.createElement("button");
+          addBtn.type = "button";
+          addBtn.className = "btn-day-add";
+          addBtn.textContent = "添加";
+
+          function submitC() {
+            const title = (titleInput.value || "").trim();
+            if (!title) {
+              titleInput.focus();
+              return;
+            }
+            todos.push({
+              id: createId(),
+              type: "C",
+              title,
+              done: false,
+              createdAt: new Date().toISOString(),
+              date: createDate,
+              time: null
+            });
+            titleInput.value = "";
+            saveTodos();
+            renderAll();
+          }
+
+          addBtn.addEventListener("click", submitC);
+          titleInput.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              submitC();
+            }
+          });
+
+          form.appendChild(titleInput);
+          form.appendChild(addBtn);
+
+          column.appendChild(header);
+          column.appendChild(dayList);
+          column.appendChild(form);
+
+          weekGridEl.appendChild(column);
+        });
+      }
+
+      function renderAll() {
+        renderHeader();
+        renderASection();
+        renderBSection();
+        renderCSection();
+      }
+
+      // 初始化 ----------------------------------------------------------
+
+      let initialized = false;
+      async function init() {
+        if (initialized) return;
+        initialized = true;
+        await loadTodos();
+        normalizeBTodos();
+        currentWeekStart = getWeekStart(today);
+        renderAll();
+      }
+
+      window.__todoAppInit = init;
+
+      if (localStorage.getItem("auth_token")) {
+        init();
+      }
+    })();
+  </script>
+</body>
+</html>

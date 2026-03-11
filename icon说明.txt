@@ -1,0 +1,10 @@
+图标文件说明：
+
+如果你有自己的图标，请将其命名为 icon.ico 并放在项目根目录。
+
+如果没有图标，可以：
+1. 在线生成：访问 https://www.favicon-generator.org/ 或 https://convertio.co/zh/png-ico/
+2. 使用任意 PNG 图片转换成 ICO 格式
+3. 或者暂时不使用图标（删除 package.json 和 main.js 中的 icon 相关配置）
+
+推荐尺寸：256x256 像素

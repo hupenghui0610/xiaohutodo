@@ -1,0 +1,34 @@
+{
+  "name": "xiaohutodo",
+  "version": "1.0.0",
+  "description": "小胡同学To-do List",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder",
+    "deploy": "npx wrangler pages deploy . --project-name=xiaohutodo"
+  },
+  "build": {
+    "appId": "com.xiaohutodo.app",
+    "productName": "小胡同学Todo",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.1"
+  }
+}
