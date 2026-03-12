@@ -992,7 +992,7 @@
           <span>日待办</span>
         </div>
       </div>
-      <div class="footer-version" id="footerVersion">20250311-v1</div>
+      <div class="footer-version" id="footerVersion"></div>
       <div class="footer-right">
         <span class="current-account" id="currentAccount"></span>
         <button class="btn-logout" id="logoutBtn" title="退出登录">退出</button>
@@ -1003,6 +1003,10 @@
   <script src="feishu-storage.js"></script>
   <script>
     (function () {
+      // 版本号规则：日期 YYYYMMDD + 当天第几次发布，如 20260417-v3 表示 2026年4月17日第3次发布。发布时请修改此处。
+      const APP_VERSION = "20250311-v3";
+      document.getElementById("footerVersion").textContent = APP_VERSION;
+
       const AUTH_TOKEN_KEY = "auth_token";
       const AUTH_USERNAME_KEY = "auth_username";
       const loginOverlay = document.getElementById("loginOverlay");
