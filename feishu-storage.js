@@ -60,10 +60,17 @@ const FeishuStorage = {
       const existingTodos = await this.loadTodos();
       const existingIds = new Set(existingTodos.map(t => t.id));
 
-      // 分类处理：新增、更新、删除
+      // 分类处理：新增、更新、删除（同一 id 在飞书有多条时，只保留一条用于更新，其余删掉）
       const toCreate = todos.filter(t => !existingIds.has(t.id));
       const toUpdate = todos.filter(t => existingIds.has(t.id));
-      const toDelete = existingTodos.filter(t => !todos.find(todo => todo.id === t.id));
+      const idKept = new Set();
+      const toDelete = existingTodos.filter((t) => {
+        const hasLocal = todos.some((todo) => todo.id === t.id);
+        if (!hasLocal) return true;
+        if (idKept.has(t.id)) return true;
+        idKept.add(t.id);
+        return false;
+      });
 
       // 批量创建
       for (const todo of toCreate) {

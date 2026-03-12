@@ -1234,17 +1234,24 @@
         }
       }
 
+      // 串行执行保存，避免并发 saveTodos 时两次 loadTodos 都看不到新记录而重复 createTodo 导致飞书出现同 id 两条
+      let saveTodosChain = Promise.resolve();
       async function saveTodos() {
-        try {
-          // 保存到飞书
-          const success = await FeishuStorage.saveTodos(todos);
-          if (!success) {
-            alert("保存到飞书时出错，请稍后重试。");
+        const run = async () => {
+          try {
+            const success = await FeishuStorage.saveTodos(todos);
+            if (!success) {
+              alert("保存到飞书时出错，请稍后重试。");
+            }
+            return success;
+          } catch (e) {
+            console.error("保存待办失败:", e);
+            alert("保存到飞书时出错，请检查网络连接。");
+            return false;
           }
-        } catch (e) {
-          console.error("保存待办失败:", e);
-          alert("保存到飞书时出错，请检查网络连接。");
-        }
+        };
+        saveTodosChain = saveTodosChain.then(run, run);
+        return saveTodosChain;
       }
 
       function createId() {
@@ -1354,18 +1361,18 @@
       }
 
       async function deleteTodo(id) {
-        const idx = todos.findIndex((x) => x.id === id);
-        if (idx === -1) return;
-        const removed = todos.splice(idx, 1)[0];
+        const removedList = todos.filter((x) => x.id === id);
+        if (removedList.length === 0) return;
+        todos = todos.filter((x) => x.id !== id);
         renderAll();
         const success = await saveTodos();
         if (success) return;
         // 请求未确认成功时，再拉一次列表校验：若服务端已删则以服务器为准，避免无效提示
         try {
           const fresh = await FeishuStorage.loadTodos();
-          const stillThere = fresh.some((t) => t.id === removed.id);
+          const stillThere = fresh.some((t) => t.id === id);
           if (stillThere) {
-            todos.splice(idx, 0, removed);
+            todos.push(...removedList);
             renderAll();
             alert('删除失败，请稍后重试。');
           } else {
@@ -1374,7 +1381,7 @@
             renderAll();
           }
         } catch (e) {
-          todos.splice(idx, 0, removed);
+          todos.push(...removedList);
           renderAll();
           alert('删除失败，请稍后重试。');
         }

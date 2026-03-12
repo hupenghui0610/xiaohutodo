@@ -6,7 +6,7 @@
   "scripts": {
     "start": "electron .",
     "build": "electron-builder",
-    "deploy": "npx wrangler pages deploy . --project-name=xiaohutodo"
+    "deploy": "npx wrangler pages deploy . --project-name=xiaohutodo --branch=main"
   },
   "build": {
     "appId": "com.xiaohutodo.app",
