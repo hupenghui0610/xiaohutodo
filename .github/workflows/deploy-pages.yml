@@ -18,6 +18,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: 注入部署日期版本号
+        run: |
+          VERSION=$(TZ=Asia/Shanghai date +%Y%m%d)-v1
+          sed -i "s/{{DEPLOY_VERSION}}/$VERSION/g" index.html
+
       - name: Deploy to Cloudflare Pages
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

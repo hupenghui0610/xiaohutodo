@@ -1003,9 +1003,8 @@
   <script src="feishu-storage.js"></script>
   <script>
     (function () {
-      // 版本号规则：日期 YYYYMMDD + 当天第几次发布，如 20260417-v3 表示 2026年4月17日第3次发布。发布时请修改此处。
-      const APP_VERSION = "20250311-v3";
-      document.getElementById("footerVersion").textContent = APP_VERSION;
+      // 版本号规则：推送/部署当天的日期 YYYYMMDD-v1，由部署流程在构建时注入
+      document.getElementById("footerVersion").textContent = "{{DEPLOY_VERSION}}";
 
       const AUTH_TOKEN_KEY = "auth_token";
       const AUTH_USERNAME_KEY = "auth_username";
