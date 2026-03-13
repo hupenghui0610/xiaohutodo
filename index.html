@@ -1001,7 +1001,7 @@
   <script src="feishu-storage.js"></script>
   <script>
     (function () {
-      // 版本号规则：推送/部署当天的日期 YYYYMMDD-v1，由部署流程在构建时注入
+      // 版本号：推送/部署当天日期 YYYYMMDD-v1，由 GitHub Actions 在部署时注入
       document.getElementById("footerVersion").textContent = "{{DEPLOY_VERSION}}";
 
       const AUTH_TOKEN_KEY = "auth_token";
