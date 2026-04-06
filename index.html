@@ -853,15 +853,6 @@
       border-color: rgba(248, 113, 113, 0.7);
     }
 
-    .footer-version {
-      position: absolute;
-      left: 50%;
-      transform: translateX(-50%);
-      font-size: 12px;
-      color: var(--text-soft);
-      pointer-events: none;
-    }
-
     .footer-right {
       display: flex;
       align-items: center;
@@ -990,7 +981,6 @@
           <span>日待办</span>
         </div>
       </div>
-      <div class="footer-version" id="footerVersion"></div>
       <div class="footer-right">
         <span class="current-account" id="currentAccount"></span>
         <button class="btn-logout" id="logoutBtn" title="退出登录">退出</button>
@@ -1001,9 +991,6 @@
   <script src="feishu-storage.js"></script>
   <script>
     (function () {
-      // 版本号：推送/部署当天日期 YYYYMMDD-v1，由 GitHub Actions 在部署时注入
-      document.getElementById("footerVersion").textContent = "{{DEPLOY_VERSION}}";
-
       const AUTH_TOKEN_KEY = "auth_token";
       const AUTH_USERNAME_KEY = "auth_username";
       const loginOverlay = document.getElementById("loginOverlay");
