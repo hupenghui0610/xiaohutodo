@@ -988,7 +988,7 @@
     </footer>
   </div>
 
-  <script src="feishu-storage.js"></script>
+  <script src="d1-storage.js"></script>
   <script>
     (function () {
       const AUTH_TOKEN_KEY = "auth_token";
@@ -1167,8 +1167,8 @@
 
       async function loadTodos() {
         try {
-          // 从飞书加载数据
-          todos = await FeishuStorage.loadTodos();
+          // 从 D1 数据库加载数据
+          todos = await D1Storage.loadTodos();
         } catch (e) {
           console.error("加载待办失败:", e);
           todos = [];
@@ -1227,7 +1227,7 @@
       async function saveTodos() {
         const run = async () => {
           try {
-            const success = await FeishuStorage.saveTodos(todos);
+            const success = await D1Storage.saveTodos(todos);
             if (!success) {
               alert("保存到飞书时出错，请稍后重试。");
             }
@@ -1357,7 +1357,7 @@
         if (success) return;
         // 请求未确认成功时，再拉一次列表校验：若服务端已删则以服务器为准，避免无效提示
         try {
-          const fresh = await FeishuStorage.loadTodos();
+          const fresh = await D1Storage.loadTodos();
           const stillThere = fresh.some((t) => t.id === id);
           if (stillThere) {
             todos.push(...removedList);
