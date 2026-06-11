@@ -1,6 +1,6 @@
 const encoder = new TextEncoder();
 
-export const PASSWORD_ITERATIONS = 210000;
+export const PASSWORD_ITERATIONS = 100000;
 export const PASSWORD_MIN_LENGTH = 10;
 export const PASSWORD_MAX_LENGTH = 72;
 
@@ -28,7 +28,11 @@ export async function sha256(value) {
   return bytesToHex(new Uint8Array(digest));
 }
 
-export async function hashPassword(password, saltHex = randomHex(16)) {
+export async function hashPassword(
+  password,
+  saltHex = randomHex(16),
+  iterations = PASSWORD_ITERATIONS
+) {
   const key = await crypto.subtle.importKey(
     'raw',
     encoder.encode(password),
@@ -41,7 +45,7 @@ export async function hashPassword(password, saltHex = randomHex(16)) {
       name: 'PBKDF2',
       hash: 'SHA-256',
       salt: hexToBytes(saltHex),
-      iterations: PASSWORD_ITERATIONS,
+      iterations,
     },
     key,
     256
@@ -49,13 +53,17 @@ export async function hashPassword(password, saltHex = randomHex(16)) {
   return {
     hash: bytesToHex(new Uint8Array(bits)),
     salt: saltHex,
-    iterations: PASSWORD_ITERATIONS,
+    iterations,
   };
 }
 
 export async function verifyPassword(password, user) {
   if (user.password_hash && user.password_salt) {
-    const result = await hashPassword(password, user.password_salt);
+    const result = await hashPassword(
+      password,
+      user.password_salt,
+      Number(user.password_iterations) || PASSWORD_ITERATIONS
+    );
     return result.hash === user.password_hash;
   }
   if (user.legacy_password_hash) {

@@ -37,6 +37,18 @@ test('PBKDF2 hashes and verifies passwords with the required work factor', async
   );
 });
 
+test('password verification honors the stored iteration count', async () => {
+  const result = await hashPassword('iteration-aware-password', undefined, 1200);
+  assert.equal(
+    await verifyPassword('iteration-aware-password', {
+      password_hash: result.hash,
+      password_salt: result.salt,
+      password_iterations: 1200,
+    }),
+    true
+  );
+});
+
 test('username and password validation follows the public rules', () => {
   assert.equal(normalizeUsername('  Alice_01 '), 'alice_01');
   assert.equal(validateUsername('alice_01'), '');

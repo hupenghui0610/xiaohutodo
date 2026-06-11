@@ -29,7 +29,7 @@ export async function onRequestPost({ request, env }) {
   }
 
   const stored = await env.DB.prepare(
-    `SELECT password_hash, password_salt, legacy_password_hash
+    `SELECT password_hash, password_salt, password_iterations, legacy_password_hash
      FROM users WHERE id = ?`
   ).bind(auth.user.id).first();
   if (!stored || !(await verifyPassword(currentPassword, stored))) {
