@@ -1,3 +1,9 @@
 node_modules/
 dist/
 *.log
+.tmp-d1-test/
+.tmp-d1-app/
+.wrangler/
+.pages-config/
+.pages-dist/
+backups/

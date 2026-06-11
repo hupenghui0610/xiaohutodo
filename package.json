@@ -1,0 +1,10 @@
+{
+  "name": "xiaohutodo",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/prepare-pages.mjs",
+    "test": "node --test",
+    "check": "node --check auth-ui.js && node --check d1-storage.js"
+  }
+}

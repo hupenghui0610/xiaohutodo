@@ -983,111 +983,15 @@
       </div>
       <div class="footer-right">
         <span class="current-account" id="currentAccount"></span>
+        <button class="btn-logout" id="adminUsersBtn" style="display:none;">账号管理</button>
+        <button class="btn-logout" id="changePasswordBtn">修改密码</button>
         <button class="btn-logout" id="logoutBtn" title="退出登录">退出</button>
       </div>
     </footer>
   </div>
 
   <script src="d1-storage.js"></script>
-  <script>
-    (function () {
-      const AUTH_TOKEN_KEY = "auth_token";
-      const AUTH_USERNAME_KEY = "auth_username";
-      const loginOverlay = document.getElementById("loginOverlay");
-      const mainApp = document.getElementById("mainApp");
-      const loginBtn = document.getElementById("loginBtn");
-      const loginUsername = document.getElementById("loginUsername");
-      const loginPassword = document.getElementById("loginPassword");
-      const loginError = document.getElementById("loginError");
-      const logoutBtn = document.getElementById("logoutBtn");
-      const currentAccountEl = document.getElementById("currentAccount");
-
-      function getToken() {
-        return localStorage.getItem(AUTH_TOKEN_KEY);
-      }
-
-      function getDisplayUsername() {
-        var stored = localStorage.getItem(AUTH_USERNAME_KEY);
-        if (stored) return stored;
-        var token = getToken();
-        if (token && token.indexOf(":") !== -1) return token.substring(0, token.indexOf(":"));
-        return "";
-      }
-
-      function showApp() {
-        loginOverlay.classList.add("hidden");
-        mainApp.style.display = "";
-        var name = getDisplayUsername();
-        currentAccountEl.textContent = name || "";
-        if (window.__todoAppInit) window.__todoAppInit();
-      }
-
-      function showLogin() {
-        loginOverlay.classList.remove("hidden");
-        mainApp.style.display = "none";
-        loginError.textContent = "";
-        loginUsername.value = "";
-        loginPassword.value = "";
-      }
-
-      async function handleLogin() {
-        const username = (loginUsername.value || "").trim();
-        const password = loginPassword.value || "";
-        loginError.textContent = "";
-
-        if (!username || !password) {
-          loginError.textContent = "请输入账号和密码";
-          return;
-        }
-
-        loginBtn.disabled = true;
-        loginBtn.textContent = "登录中...";
-
-        try {
-          const resp = await fetch("/api/login", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ username, password })
-          });
-
-          const data = await resp.json();
-
-          if (resp.ok && data.token) {
-            localStorage.setItem(AUTH_TOKEN_KEY, data.token);
-            if (data.username) localStorage.setItem(AUTH_USERNAME_KEY, data.username);
-            showApp();
-          } else {
-            loginError.textContent = data.error || "登录失败，请检查账号密码";
-          }
-        } catch (e) {
-          loginError.textContent = "网络错误，请稍后重试";
-        } finally {
-          loginBtn.disabled = false;
-          loginBtn.textContent = "登 录";
-        }
-      }
-
-      loginBtn.addEventListener("click", handleLogin);
-      loginPassword.addEventListener("keydown", function (e) {
-        if (e.key === "Enter") { e.preventDefault(); handleLogin(); }
-      });
-      loginUsername.addEventListener("keydown", function (e) {
-        if (e.key === "Enter") { e.preventDefault(); loginPassword.focus(); }
-      });
-
-      logoutBtn.addEventListener("click", function () {
-        localStorage.removeItem(AUTH_TOKEN_KEY);
-        localStorage.removeItem(AUTH_USERNAME_KEY);
-        showLogin();
-      });
-
-      if (getToken()) {
-        showApp();
-      } else {
-        showLogin();
-      }
-    })();
-  </script>
+  <script src="auth-ui.js"></script>
   <script>
     (function () {
       const STORAGE_KEY = "personal_todos_v1";
@@ -1172,7 +1076,7 @@
         } catch (e) {
           console.error("加载待办失败:", e);
           todos = [];
-          alert("从飞书加载数据失败，请检查网络连接");
+          alert("从数据库加载数据失败，请检查网络连接");
         }
       }
 
@@ -1222,19 +1126,19 @@
         }
       }
 
-      // 串行执行保存，避免并发 saveTodos 时两次 loadTodos 都看不到新记录而重复 createTodo 导致飞书出现同 id 两条
+      // 串行提交增量变更，避免同一条待办的写入顺序错乱
       let saveTodosChain = Promise.resolve();
       async function saveTodos() {
         const run = async () => {
           try {
             const success = await D1Storage.saveTodos(todos);
             if (!success) {
-              alert("保存到飞书时出错，请稍后重试。");
+              alert("保存到数据库时出错，请稍后重试。");
             }
             return success;
           } catch (e) {
             console.error("保存待办失败:", e);
-            alert("保存到飞书时出错，请检查网络连接。");
+            alert("保存到数据库时出错，请检查网络连接。");
             return false;
           }
         };
@@ -1785,10 +1689,6 @@
       }
 
       window.__todoAppInit = init;
-
-      if (localStorage.getItem("auth_token")) {
-        init();
-      }
     })();
   </script>
 </body>

@@ -1,176 +1,124 @@
-import { verifyToken } from './login.js';
+import { requireUser } from '../_lib/auth.js';
+import { error, json, readJson, requireSameOrigin } from '../_lib/http.js';
 
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-};
+const SELECT_FIELDS = 'id, type, title, done, date, weekStart, delayed, createdAt';
 
-function jsonResponse(data, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
-  });
+function mapTodo(row) {
+  return {
+    id: row.id,
+    type: row.type,
+    title: row.title,
+    done: Boolean(row.done),
+    date: row.date,
+    weekStart: row.weekStart,
+    delayed: Boolean(row.delayed),
+    createdAt: row.createdAt,
+  };
 }
 
-export async function onRequest(context) {
-  const { request, env } = context;
+function validateTodo(fields, creating = false) {
+  if (!fields || typeof fields !== 'object') return '待办数据无效';
+  if (creating && (!fields.id || !fields.type || !fields.title)) {
+    return '缺少必要字段';
+  }
+  if (fields.type !== undefined && !['A', 'B', 'C'].includes(fields.type)) {
+    return '待办类型无效';
+  }
+  if (fields.title !== undefined) {
+    if (typeof fields.title !== 'string' || !fields.title.trim() || fields.title.length > 500) {
+      return '待办标题须为 1-500 个字符';
+    }
+  }
+  return '';
+}
 
-  if (request.method === 'OPTIONS') {
-    return new Response(null, { status: 200, headers: CORS_HEADERS });
+export async function onRequest({ request, env }) {
+  if (!env.DB) return error('DATABASE_UNAVAILABLE', '数据库未配置', 500);
+  const method = request.method;
+  if (method !== 'GET' && !requireSameOrigin(request)) {
+    return error('INVALID_ORIGIN', '请求来源无效', 403);
   }
 
-  const loginSecret = env.LOGIN_SECRET || 'xiaohu-todo-secret-2026';
-  const authHeader = request.headers.get('authorization') || '';
-  const userToken = authHeader.replace(/^Bearer\s+/i, '');
-  const username = await verifyToken(userToken, loginSecret);
-  if (!username) {
-    return jsonResponse({ error: '未登录或 token 无效' }, 401);
-  }
-
-  // 获取 D1 数据库实例
-  const db = env.DB;
-  if (!db) {
-    return jsonResponse({ error: '数据库未配置' }, 500);
-  }
+  const auth = await requireUser(env.DB, request);
+  if (auth.response) return auth.response;
+  const userId = auth.user.id;
 
   try {
-    const method = request.method;
-
-    // GET: 获取所有待办
     if (method === 'GET') {
-      const { results } = await db.prepare(
-        'SELECT id, type, title, done, date, weekStart, delayed, createdAt FROM todos ORDER BY createdAt DESC'
-      ).all();
-
-      // 转换 done 和 delayed 为布尔值（前端期望布尔值）
-      const todos = results.map(row => ({
-        id: row.id,
-        type: row.type,
-        title: row.title,
-        done: Boolean(row.done),
-        date: row.date,
-        weekStart: row.weekStart,
-        delayed: Boolean(row.delayed),
-        createdAt: row.createdAt,
-      }));
-
-      return jsonResponse({ code: 0, data: { items: todos } });
+      const { results } = await env.DB.prepare(
+        `SELECT ${SELECT_FIELDS}
+         FROM todos WHERE user_id = ? ORDER BY createdAt DESC`
+      ).bind(userId).all();
+      return json({ code: 'OK', data: { items: results.map(mapTodo) } });
     }
 
-    const body = await request.json().catch(() => ({}));
-
-    // POST: 创建待办 或 删除待办（action=delete）
+    const body = await readJson(request);
     if (method === 'POST') {
-      // 删除操作
-      if (body && body.action === 'delete') {
-        const id = body.id || body.record_id;
-        if (!id) {
-          return jsonResponse({ error: '删除缺少 id', code: -1 }, 400);
-        }
-
-        await db.prepare('DELETE FROM todos WHERE id = ?').bind(id).run();
-        return jsonResponse({ code: 0, msg: 'ok' });
-      }
-
-      // 创建操作
-      if (!body || !body.fields || typeof body.fields !== 'object') {
-        return jsonResponse({ error: '创建待办缺少 fields', code: -1 }, 400);
-      }
-
-      const { id, type, title, done, date, weekStart, delayed, createdAt } = body.fields;
-
-      if (!id || !type || !title) {
-        return jsonResponse({ error: '缺少必要字段: id, type, title', code: -1 }, 400);
-      }
-
-      await db.prepare(
-        `INSERT INTO todos (id, type, title, done, date, weekStart, delayed, createdAt)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+      const validationError = validateTodo(body?.fields, true);
+      if (validationError) return error('INVALID_TODO', validationError, 400);
+      const fields = body.fields;
+      await env.DB.prepare(
+        `INSERT INTO todos
+         (id, user_id, type, title, done, date, weekStart, delayed, createdAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
       ).bind(
-        id,
-        type,
-        title,
-        done ? 1 : 0,
-        date || null,
-        weekStart || null,
-        delayed ? 1 : 0,
-        createdAt || new Date().toISOString()
+        fields.id,
+        userId,
+        fields.type,
+        fields.title.trim(),
+        fields.done ? 1 : 0,
+        fields.date || null,
+        fields.weekStart || null,
+        fields.delayed ? 1 : 0,
+        fields.createdAt || new Date().toISOString()
       ).run();
-
-      return jsonResponse({ code: 0, msg: 'created' });
+      return json({ code: 'OK', todo: mapTodo({ ...fields }) }, 201);
     }
 
-    // PUT: 更新待办
     if (method === 'PUT') {
-      const { id, fields } = body;
-
-      if (!id || !fields || typeof fields !== 'object') {
-        return jsonResponse({ error: '更新待办缺少 id 或 fields', code: -1 }, 400);
+      const id = body?.id;
+      const fields = body?.fields;
+      const validationError = validateTodo(fields);
+      if (!id || validationError) {
+        return error('INVALID_TODO', validationError || '缺少待办 ID', 400);
       }
 
-      // 构建动态更新语句
       const updates = [];
       const values = [];
-
-      if (fields.type !== undefined) {
-        updates.push('type = ?');
-        values.push(fields.type);
+      for (const [key, value] of Object.entries(fields)) {
+        if (!['type', 'title', 'done', 'date', 'weekStart', 'delayed', 'createdAt'].includes(key)) {
+          continue;
+        }
+        updates.push(`${key} = ?`);
+        values.push(
+          key === 'done' || key === 'delayed'
+            ? (value ? 1 : 0)
+            : (key === 'title' ? value.trim() : value)
+        );
       }
-      if (fields.title !== undefined) {
-        updates.push('title = ?');
-        values.push(fields.title);
-      }
-      if (fields.done !== undefined) {
-        updates.push('done = ?');
-        values.push(fields.done ? 1 : 0);
-      }
-      if (fields.date !== undefined) {
-        updates.push('date = ?');
-        values.push(fields.date);
-      }
-      if (fields.weekStart !== undefined) {
-        updates.push('weekStart = ?');
-        values.push(fields.weekStart);
-      }
-      if (fields.delayed !== undefined) {
-        updates.push('delayed = ?');
-        values.push(fields.delayed ? 1 : 0);
-      }
-      if (fields.createdAt !== undefined) {
-        updates.push('createdAt = ?');
-        values.push(fields.createdAt);
-      }
-
-      if (updates.length === 0) {
-        return jsonResponse({ error: '没有要更新的字段', code: -1 }, 400);
-      }
-
-      values.push(id); // WHERE 条件
-
-      await db.prepare(
-        `UPDATE todos SET ${updates.join(', ')} WHERE id = ?`
+      if (!updates.length) return error('NO_CHANGES', '没有可更新字段', 400);
+      values.push(id, userId);
+      const result = await env.DB.prepare(
+        `UPDATE todos SET ${updates.join(', ')} WHERE id = ? AND user_id = ?`
       ).bind(...values).run();
-
-      return jsonResponse({ code: 0, msg: 'updated' });
+      if (!result.meta?.changes) return error('TODO_NOT_FOUND', '待办不存在', 404);
+      return json({ code: 'OK' });
     }
 
-    // DELETE: 删除待办（直接删除方式）
     if (method === 'DELETE') {
       const url = new URL(request.url);
       const id = url.searchParams.get('id') || body?.id;
-
-      if (!id) {
-        return jsonResponse({ error: '缺少 id', code: -1 }, 400);
-      }
-
-      await db.prepare('DELETE FROM todos WHERE id = ?').bind(id).run();
-      return jsonResponse({ code: 0, msg: 'deleted' });
+      if (!id) return error('INVALID_TODO', '缺少待办 ID', 400);
+      const result = await env.DB.prepare(
+        'DELETE FROM todos WHERE id = ? AND user_id = ?'
+      ).bind(id, userId).run();
+      if (!result.meta?.changes) return error('TODO_NOT_FOUND', '待办不存在', 404);
+      return json({ code: 'OK' });
     }
 
-    return jsonResponse({ error: 'Method not allowed' }, 405);
-  } catch (error) {
-    console.error('D1 API Error:', error);
-    return jsonResponse({ error: error.message }, 500);
+    return error('METHOD_NOT_ALLOWED', '请求方法不受支持', 405);
+  } catch (exception) {
+    console.error('Todo API failed', exception);
+    return error('INTERNAL_ERROR', '待办操作失败', 500);
   }
 }
