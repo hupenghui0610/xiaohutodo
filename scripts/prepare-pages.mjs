@@ -3,7 +3,12 @@ import path from 'node:path';
 
 const root = process.cwd();
 const output = path.join(root, '.pages-dist');
-const staticFiles = ['auth-ui.js', 'd1-storage.js', 'icon.ico'];
+const staticFiles = [
+  'auth-ui.js',
+  'd1-storage.js',
+  'feature-tabs.js',
+  'icon.ico',
+];
 
 await rm(output, { recursive: true, force: true });
 await mkdir(output, { recursive: true });

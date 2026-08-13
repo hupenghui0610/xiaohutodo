@@ -73,6 +73,10 @@
         padding: 16px 12px 12px;
         border-radius: 18px;
       }
+      .app-header {
+        align-items: flex-start;
+        flex-wrap: wrap;
+      }
     }
 
     /* Header */
@@ -86,35 +90,66 @@
       border-bottom: 1px solid rgba(31, 41, 55, 0.9);
     }
 
-    .title-block {
+    .feature-tabs {
       display: flex;
-      flex-direction: column;
-      gap: 4px;
+      align-items: stretch;
+      gap: 20px;
+      min-width: 0;
     }
 
-    .app-title {
+    .feature-tab {
+      position: relative;
+      min-height: 44px;
+      padding: 0 0 8px;
+      border: 0;
+      background: transparent;
+      color: var(--text-soft);
+      font: inherit;
       font-size: 22px;
       font-weight: 600;
       letter-spacing: 0.02em;
-      display: flex;
-      align-items: center;
-      gap: 8px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: color var(--transition-fast);
     }
 
-    .app-title-badge {
-      font-size: 11px;
-      padding: 2px 7px 1px;
+    .feature-tab::after {
+      content: "";
+      position: absolute;
+      right: 0;
+      bottom: -9px;
+      left: 0;
+      height: 2px;
       border-radius: 999px;
-      background: rgba(37, 99, 235, 0.15);
-      color: #93c5fd;
-      border: 1px solid rgba(59, 130, 246, 0.5);
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
+      background: transparent;
+      transition: background var(--transition-fast), box-shadow var(--transition-fast);
     }
 
-    .app-subtitle {
-      font-size: 12px;
-      color: var(--text-soft);
+    .feature-tab:hover {
+      color: var(--text-main);
+    }
+
+    .feature-tab:focus-visible {
+      outline: 2px solid rgba(96, 165, 250, 0.95);
+      outline-offset: 4px;
+      border-radius: 4px;
+    }
+
+    .feature-tab[aria-selected="true"] {
+      color: #93c5fd;
+    }
+
+    .feature-tab[aria-selected="true"]::after {
+      background: var(--accent);
+      box-shadow: 0 0 12px rgba(37, 99, 235, 0.75);
+    }
+
+    .documents-placeholder {
+      min-height: 180px;
+      display: grid;
+      place-items: center;
+      color: var(--text-muted);
+      font-size: 16px;
     }
 
     .week-nav {
@@ -894,12 +929,28 @@
 
   <div class="app" id="mainApp" style="display:none;">
     <header class="app-header">
-      <div class="title-block">
-        <div class="app-title">
-          小胡同学To-do List
-        </div>
+      <div class="feature-tabs" role="tablist" aria-label="一级功能">
+        <button
+          class="feature-tab"
+          id="todoTab"
+          type="button"
+          role="tab"
+          aria-controls="todoPanel"
+          aria-selected="true"
+          data-feature-tab="todo"
+        >To-do List</button>
+        <button
+          class="feature-tab"
+          id="documentsTab"
+          type="button"
+          role="tab"
+          aria-controls="documentsPanel"
+          aria-selected="false"
+          tabindex="-1"
+          data-feature-tab="documents"
+        >文档链接</button>
       </div>
-      <div class="week-nav">
+      <div class="week-nav" id="weekNav">
         <div class="week-labels">
           <div id="weekRangeText" class="week-range"></div>
           <div id="weekExtraInfo" class="week-info"></div>
@@ -912,7 +963,12 @@
       </div>
     </header>
 
-    <main class="sections">
+    <main
+      class="sections"
+      id="todoPanel"
+      role="tabpanel"
+      aria-labelledby="todoTab"
+    >
       <!-- A 区：无限期 -->
       <section class="panel" id="sectionA">
         <div class="panel-header">
@@ -966,6 +1022,16 @@
       </section>
     </main>
 
+    <main
+      class="sections"
+      id="documentsPanel"
+      role="tabpanel"
+      aria-labelledby="documentsTab"
+      hidden
+    >
+      <section class="panel documents-placeholder">功能占位</section>
+    </main>
+
     <footer class="app-footer">
       <div class="legend">
         <div class="legend-item">
@@ -992,6 +1058,7 @@
 
   <script src="d1-storage.js"></script>
   <script src="auth-ui.js"></script>
+  <script type="module" src="feature-tabs.js"></script>
   <script>
     (function () {
       const STORAGE_KEY = "personal_todos_v1";
