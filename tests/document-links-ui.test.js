@@ -155,6 +155,23 @@ test('editor renders title description directory and save cancel controls', asyn
   assert.deepEqual(context.calls, [['cancelEdit']]);
 });
 
+test('editor groups title and directory above a full-width description and compact footer', () => {
+  const context = setup({ documentCount: 0 });
+  context.update({ editor: {
+    mode: 'add', documentId: null, draft: { directoryId: 'dir-1', title: '', description: '' },
+    errors: {}, error: '', saving: false,
+  } });
+  const content = context.root.getElementById('documentsContent');
+  const top = find(content, (item) => item.classList.contains('document-editor__top-fields'));
+  const description = find(content, (item) => item.classList.contains('document-field--description'));
+  const footer = find(content, (item) => item.classList.contains('document-editor__footer'));
+  assert.ok(top);
+  assert.ok(find(top, (item) => item.dataset.field === 'title'));
+  assert.ok(find(top, (item) => item.dataset.field === 'directoryId'));
+  assert.ok(find(description, (item) => item.dataset.field === 'description'));
+  assert.ok(find(footer, (item) => item.dataset.action === 'save-editor'));
+});
+
 test('draft input updates do not replace the focused editor DOM', async () => {
   const context = setup({ documentCount: 0 });
   const editor = {

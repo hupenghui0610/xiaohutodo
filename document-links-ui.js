@@ -98,6 +98,7 @@ export function createDocumentLinksUi({ root = document, store = createDocumentL
   function renderEditor(editor, directories) {
     const wrapper = element(root, 'div', 'document-editor');
     const fields = element(root, 'div', 'document-editor__fields');
+    const topFields = element(root, 'div', 'document-editor__top-fields');
 
     const titleGroup = element(root, 'label', 'document-field');
     titleGroup.append(element(root, 'span', 'document-field__label', '标题'));
@@ -113,7 +114,7 @@ export function createDocumentLinksUi({ root = document, store = createDocumentL
     titleError.dataset.errorFor = 'title';
     titleGroup.append(titleInput, titleCount, titleError);
 
-    const descriptionGroup = element(root, 'label', 'document-field');
+    const descriptionGroup = element(root, 'label', 'document-field document-field--description');
     descriptionGroup.append(element(root, 'span', 'document-field__label', '描述'));
     const descriptionInput = element(root, 'textarea', 'input document-description-input');
     descriptionInput.dataset.field = 'description';
@@ -144,7 +145,8 @@ export function createDocumentLinksUi({ root = document, store = createDocumentL
     directoryErrorNode.dataset.errorFor = 'directoryId';
     directoryGroup.append(select, directoryErrorNode);
 
-    fields.append(titleGroup, descriptionGroup, directoryGroup);
+    topFields.append(titleGroup, directoryGroup);
+    fields.append(topFields, descriptionGroup);
     const error = element(root, 'div', 'field-error document-editor__error', editor.error || '');
     error.dataset.role = 'editor-error';
     const actions = element(root, 'div', 'document-row__actions');
@@ -155,7 +157,9 @@ export function createDocumentLinksUi({ root = document, store = createDocumentL
     save.disabled = editor.saving;
     save.addEventListener('click', () => store.saveDraft());
     actions.append(cancel, save);
-    wrapper.append(fields, error, actions);
+    const footer = element(root, 'div', 'document-editor__footer');
+    footer.append(error, actions);
+    wrapper.append(fields, footer);
     return wrapper;
   }
 

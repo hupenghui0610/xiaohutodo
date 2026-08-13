@@ -51,3 +51,10 @@ test('footer legend is removed while account controls remain common', () => {
   assert.match(html, /\.panel-header\s*\{[\s\S]*?justify-content:\s*space-between/);
   assert.match(html, /\.app-footer\s*\{[\s\S]*?justify-content:\s*flex-end/);
 });
+
+test('document editor uses the compact two-row responsive layout', () => {
+  assert.match(html, /\.document-editor__top-fields\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0,\s*2fr\)\s+minmax\(180px,\s*1fr\)/);
+  assert.match(html, /\.document-description-input\s*\{[\s\S]*?min-height:\s*64px/);
+  assert.match(html, /\.document-editor__footer\s*\{[\s\S]*?justify-content:\s*space-between/);
+  assert.match(html, /@media\s*\(max-width:\s*768px\)[\s\S]*?\.document-editor__top-fields[\s\S]*?grid-template-columns:\s*minmax\(0,\s*1fr\)/);
+});
