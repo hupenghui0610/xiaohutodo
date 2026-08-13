@@ -54,6 +54,38 @@ CREATE INDEX IF NOT EXISTS idx_todos_user_type ON todos(user_id, type);
 CREATE INDEX IF NOT EXISTS idx_todos_user_date ON todos(user_id, date);
 CREATE INDEX IF NOT EXISTS idx_todos_user_week_start ON todos(user_id, weekStart);
 
+CREATE TABLE IF NOT EXISTS document_directory_states (
+  user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  initialized_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS document_directories (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  name_key TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  UNIQUE (user_id, name_key)
+);
+
+CREATE TABLE IF NOT EXISTS document_links (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  directory_id TEXT NOT NULL REFERENCES document_directories(id) ON DELETE RESTRICT,
+  title TEXT NOT NULL,
+  description TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_document_directories_user_created
+  ON document_directories(user_id, created_at, id);
+CREATE INDEX IF NOT EXISTS idx_document_links_user_created
+  ON document_links(user_id, created_at DESC, id);
+CREATE INDEX IF NOT EXISTS idx_document_links_user_directory
+  ON document_links(user_id, directory_id);
+
 INSERT OR IGNORE INTO users (
   id, username, legacy_password_hash, role, status,
   must_change_password, created_at, updated_at
