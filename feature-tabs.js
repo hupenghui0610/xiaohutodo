@@ -1,4 +1,10 @@
-export function createFeatureTabs({ tabs, panels, weekNav, todoLegend }) {
+export function createFeatureTabs({
+  tabs,
+  panels,
+  weekNav,
+  directoryManageBtn,
+  onDocumentsActivated = () => {},
+}) {
   function activate(tabName) {
     tabs.forEach((tab) => {
       const selected = tab.dataset.featureTab === tabName;
@@ -11,7 +17,8 @@ export function createFeatureTabs({ tabs, panels, weekNav, todoLegend }) {
     });
     const todoActive = tabName === 'todo';
     weekNav.hidden = !todoActive;
-    todoLegend.hidden = !todoActive;
+    directoryManageBtn.hidden = todoActive;
+    if (!todoActive) onDocumentsActivated();
   }
 
   tabs.forEach((tab, index) => {
@@ -39,7 +46,8 @@ export function initFeatureTabs(root = document) {
       documents: root.getElementById('documentsPanel'),
     },
     weekNav: root.getElementById('weekNav'),
-    todoLegend: root.getElementById('todoLegend'),
+    directoryManageBtn: root.getElementById('directoryManageBtn'),
+    onDocumentsActivated: () => window.__documentLinksInit?.(),
   });
 }
 

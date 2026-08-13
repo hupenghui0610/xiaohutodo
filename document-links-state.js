@@ -71,6 +71,7 @@ function clone(value) {
 
 export function createDocumentLinksStore({ request = documentApiRequest } = {}) {
   let state = freshState();
+  let generation = 0;
   const subscribers = new Set();
 
   function freshState() {
@@ -108,9 +109,12 @@ export function createDocumentLinksStore({ request = documentApiRequest } = {}) 
     if (state.status === 'ready') return true;
     if (state.status === 'loading') return false;
     setState({ status: 'loading', error: '' });
+    const operationGeneration = generation;
     try {
       const directoryResponse = await request('/api/document-directories');
+      if (operationGeneration !== generation) return false;
       const documentResponse = await request('/api/document-links');
+      if (operationGeneration !== generation) return false;
       const documents = sortDocuments(documentResponse.data?.documents || []);
       setState({
         status: 'ready',
@@ -120,12 +124,14 @@ export function createDocumentLinksStore({ request = documentApiRequest } = {}) 
       });
       return true;
     } catch (exception) {
+      if (operationGeneration !== generation) return false;
       setState({ status: 'error', error: exception.message || '加载失败' });
       return false;
     }
   }
 
   function reset() {
+    generation += 1;
     state = freshState();
     notify();
   }
@@ -184,6 +190,7 @@ export function createDocumentLinksStore({ request = documentApiRequest } = {}) 
       return false;
     }
     const editor = state.editor;
+    const operationGeneration = generation;
     setState({ editor: { ...editor, saving: true, errors: {}, error: '' } });
     const body = {
       ...(editor.mode === 'edit' ? { id: editor.documentId } : {}),
@@ -196,6 +203,7 @@ export function createDocumentLinksStore({ request = documentApiRequest } = {}) 
         method: editor.mode === 'add' ? 'POST' : 'PUT',
         body: JSON.stringify(body),
       });
+      if (operationGeneration !== generation) return false;
       const documents = editor.mode === 'add'
         ? [data.document, ...state.documents]
         : state.documents.map((item) => item.id === editor.documentId ? data.document : item);
@@ -203,6 +211,7 @@ export function createDocumentLinksStore({ request = documentApiRequest } = {}) 
       setState({ documents: sorted, directories: recalculate(state.directories, sorted), editor: null });
       return true;
     } catch (exception) {
+      if (operationGeneration !== generation) return false;
       setState({ editor: {
         ...editor, saving: false, errors: exception.fields || {}, error: exception.message || '保存失败',
       } });
@@ -211,9 +220,12 @@ export function createDocumentLinksStore({ request = documentApiRequest } = {}) 
   }
 
   async function deleteDocument(id) {
+    const operationGeneration = generation;
     await request(`/api/document-links?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+    if (operationGeneration !== generation) return false;
     const documents = state.documents.filter((item) => item.id !== id);
     setState({ documents, directories: recalculate(state.directories, documents) });
+    return true;
   }
 
   async function createDirectory(name) {
@@ -221,9 +233,11 @@ export function createDocumentLinksStore({ request = documentApiRequest } = {}) 
     if (validationError) throw new Error(validationError);
     const key = directoryNameKey(name);
     if (state.directories.some((item) => directoryNameKey(item.name) === key)) throw new Error('目录名称已存在');
+    const operationGeneration = generation;
     const data = await request('/api/document-directories', {
       method: 'POST', body: JSON.stringify({ name: normalizeText(name) }),
     });
+    if (operationGeneration !== generation) return null;
     setState({ directories: recalculate([...state.directories, data.directory], state.documents) });
     return data.directory;
   }
@@ -233,9 +247,11 @@ export function createDocumentLinksStore({ request = documentApiRequest } = {}) 
     if (validationError) throw new Error(validationError);
     const key = directoryNameKey(name);
     if (state.directories.some((item) => item.id !== id && directoryNameKey(item.name) === key)) throw new Error('目录名称已存在');
+    const operationGeneration = generation;
     const data = await request('/api/document-directories', {
       method: 'PUT', body: JSON.stringify({ id, name: normalizeText(name) }),
     });
+    if (operationGeneration !== generation) return null;
     setState({ directories: recalculate(state.directories.map((item) =>
       item.id === id ? { ...item, ...data.directory, createdAt: item.createdAt } : item
     ), state.documents) });
@@ -243,8 +259,11 @@ export function createDocumentLinksStore({ request = documentApiRequest } = {}) 
   }
 
   async function deleteDirectory(id) {
+    const operationGeneration = generation;
     await request(`/api/document-directories?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+    if (operationGeneration !== generation) return false;
     setState({ directories: state.directories.filter((item) => item.id !== id) });
+    return true;
   }
 
   return {

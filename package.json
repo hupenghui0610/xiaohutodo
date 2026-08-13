@@ -5,6 +5,6 @@
   "scripts": {
     "build": "node scripts/prepare-pages.mjs",
     "test": "node --test",
-    "check": "node --check auth-ui.js && node --check d1-storage.js"
+    "check": "node --check auth-ui.js && node --check d1-storage.js && node --check feature-tabs.js && node --check document-links-state.js && node --check document-links-ui.js && node --check functions/api/document-directories.js && node --check functions/api/document-links.js"
   }
 }

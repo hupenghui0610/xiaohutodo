@@ -9,6 +9,7 @@ function element(root, tagName, className = '', text = '') {
 
 export function createDocumentLinksUi({ root = document, store = createDocumentLinksStore({ request: documentApiRequest }) } = {}) {
   const content = root.getElementById('documentsContent');
+  const mainApp = root.getElementById('mainApp');
   const manageButton = root.getElementById('directoryManageBtn');
   const directoryModal = root.getElementById('directoryModal');
   const directoryBody = root.getElementById('directoryModalBody');
@@ -19,6 +20,7 @@ export function createDocumentLinksUi({ root = document, store = createDocumentL
   const confirmModal = root.getElementById('confirmModal');
   const confirmTitle = root.getElementById('confirmTitle');
   const confirmMessage = root.getElementById('confirmMessage');
+  const confirmError = root.getElementById('confirmError');
   const confirmAccept = root.getElementById('confirmAcceptBtn');
   const confirmCancel = root.getElementById('confirmCancelBtn');
   let confirmState = null;
@@ -32,29 +34,35 @@ export function createDocumentLinksUi({ root = document, store = createDocumentL
     return node;
   }
 
-  function closeConfirmation() {
+  function closeConfirmation(focusTarget = confirmState?.trigger) {
     confirmModal.classList.add('hidden');
-    const trigger = confirmState?.trigger;
+    directoryModal.inert = false;
     confirmState = null;
-    trigger?.focus();
+    confirmError.textContent = '';
+    focusTarget?.focus();
   }
 
   function openConfirmation({ title, message, trigger, action }) {
     confirmTitle.textContent = title;
     confirmMessage.textContent = message;
+    confirmError.textContent = '';
     confirmState = { trigger, action };
+    directoryModal.inert = !directoryModal.classList.contains('hidden');
     confirmModal.classList.remove('hidden');
     confirmCancel.focus();
   }
 
-  confirmCancel.addEventListener('click', closeConfirmation);
+  confirmCancel.addEventListener('click', () => closeConfirmation());
   confirmAccept.addEventListener('click', async () => {
     const pending = confirmState;
     if (!pending) return;
     confirmAccept.disabled = true;
     try {
       await pending.action();
-      closeConfirmation();
+      const directoryOpen = !directoryModal.classList.contains('hidden');
+      closeConfirmation(directoryOpen ? directoryInput : manageButton);
+    } catch (exception) {
+      confirmError.textContent = exception.message || '删除失败';
     } finally {
       confirmAccept.disabled = false;
     }
@@ -97,7 +105,11 @@ export function createDocumentLinksUi({ root = document, store = createDocumentL
     titleInput.maxLength = 20;
     titleInput.disabled = editor.saving;
     titleInput.addEventListener('input', (event) => store.updateDraft({ title: event.target.value }));
-    titleGroup.append(titleInput, element(root, 'div', 'character-count', `${unicodeLength(editor.draft.title)}/20`), fieldError(editor.errors.title));
+    const titleCount = element(root, 'div', 'character-count', `${unicodeLength(editor.draft.title)}/20`);
+    titleCount.dataset.role = 'title-count';
+    const titleError = fieldError(editor.errors.title);
+    titleError.dataset.errorFor = 'title';
+    titleGroup.append(titleInput, titleCount, titleError);
 
     const descriptionGroup = element(root, 'label', 'document-field');
     descriptionGroup.append(element(root, 'span', 'document-field__label', '描述'));
@@ -107,7 +119,11 @@ export function createDocumentLinksUi({ root = document, store = createDocumentL
     descriptionInput.maxLength = 100;
     descriptionInput.disabled = editor.saving;
     descriptionInput.addEventListener('input', (event) => store.updateDraft({ description: event.target.value }));
-    descriptionGroup.append(descriptionInput, element(root, 'div', 'character-count', `${unicodeLength(editor.draft.description)}/100`), fieldError(editor.errors.description));
+    const descriptionCount = element(root, 'div', 'character-count', `${unicodeLength(editor.draft.description)}/100`);
+    descriptionCount.dataset.role = 'description-count';
+    const descriptionError = fieldError(editor.errors.description);
+    descriptionError.dataset.errorFor = 'description';
+    descriptionGroup.append(descriptionInput, descriptionCount, descriptionError);
 
     const directoryGroup = element(root, 'label', 'document-field');
     directoryGroup.append(element(root, 'span', 'document-field__label', '所属目录'));
@@ -122,10 +138,13 @@ export function createDocumentLinksUi({ root = document, store = createDocumentL
       select.append(option);
     });
     select.addEventListener('change', (event) => store.updateDraft({ directoryId: event.target.value }));
-    directoryGroup.append(select, fieldError(editor.errors.directoryId));
+    const directoryErrorNode = fieldError(editor.errors.directoryId);
+    directoryErrorNode.dataset.errorFor = 'directoryId';
+    directoryGroup.append(select, directoryErrorNode);
 
     fields.append(titleGroup, descriptionGroup, directoryGroup);
     const error = element(root, 'div', 'field-error document-editor__error', editor.error || '');
+    error.dataset.role = 'editor-error';
     const actions = element(root, 'div', 'document-row__actions');
     const cancel = button('btn btn-ghost', '取消', 'cancel-editor');
     cancel.disabled = editor.saving;
@@ -142,6 +161,7 @@ export function createDocumentLinksUi({ root = document, store = createDocumentL
     const row = element(root, 'div', 'document-row');
     const title = button('document-row__title', document.title, 'edit-document');
     title.disabled = Boolean(state.editor);
+    if (title.disabled) title.setAttribute('title', '请先保存或取消当前编辑');
     title.addEventListener('click', () => store.beginEdit(document.id));
     const description = element(root, 'div', 'document-row__description', document.description);
     const actions = element(root, 'div', 'document-row__actions');
@@ -163,6 +183,7 @@ export function createDocumentLinksUi({ root = document, store = createDocumentL
     const heading = element(root, 'div', 'panel-title', directory.name);
     const add = button('btn btn-primary', '添加', 'add-document');
     add.disabled = Boolean(state.editor);
+    if (add.disabled) add.setAttribute('title', '请先保存或取消当前编辑');
     add.addEventListener('click', () => store.beginAdd(directory.id));
     header.append(heading, add);
     const body = element(root, 'div', 'document-directory__body');
@@ -171,7 +192,7 @@ export function createDocumentLinksUi({ root = document, store = createDocumentL
     const documents = state.documents.filter((item) => item.directoryId === directory.id);
     documents.forEach((document) => {
       if (state.editor?.mode === 'edit' && state.editor.documentId === document.id) {
-        if (!editorBelongsHere) body.append(renderEditor(state.editor, state.directories));
+        return;
       } else {
         body.append(renderDocumentRow(document, state));
       }
@@ -196,6 +217,7 @@ export function createDocumentLinksUi({ root = document, store = createDocumentL
           try {
             await store.renameDirectory(directory.id, renameValue);
             renamingId = null;
+            renderDirectoryManager(store.getState());
           } catch (exception) {
             directoryError.textContent = exception.message;
           }
@@ -226,11 +248,58 @@ export function createDocumentLinksUi({ root = document, store = createDocumentL
     if (!state.directories.length) directoryBody.append(element(root, 'div', 'document-empty', '暂无目录'));
   }
 
+  function findDescendant(node, predicate) {
+    if (predicate(node)) return node;
+    for (const child of node.children || []) {
+      const match = findDescendant(child, predicate);
+      if (match) return match;
+    }
+    return null;
+  }
+
+  function patchEditor(editor) {
+    const field = (name) => findDescendant(content, (node) => node.dataset?.field === name);
+    const role = (name) => findDescendant(content, (node) => node.dataset?.role === name);
+    const errorFor = (name) => findDescendant(content, (node) => node.dataset?.errorFor === name);
+    const title = field('title');
+    const description = field('description');
+    const directory = field('directoryId');
+    if (!title || !description || !directory) return false;
+    title.value = editor.draft.title;
+    description.value = editor.draft.description;
+    directory.value = editor.draft.directoryId;
+    title.disabled = description.disabled = directory.disabled = editor.saving;
+    role('title-count').textContent = `${unicodeLength(editor.draft.title)}/20`;
+    role('description-count').textContent = `${unicodeLength(editor.draft.description)}/100`;
+    errorFor('title').textContent = editor.errors.title || '';
+    errorFor('description').textContent = editor.errors.description || '';
+    errorFor('directoryId').textContent = editor.errors.directoryId || '';
+    role('editor-error').textContent = editor.error || '';
+    const save = findDescendant(content, (node) => node.dataset?.action === 'save-editor');
+    const cancel = findDescendant(content, (node) => node.dataset?.action === 'cancel-editor');
+    save.disabled = cancel.disabled = editor.saving;
+    save.textContent = editor.saving ? '保存中…' : '保存';
+    return true;
+  }
+
+  let previousState = null;
   function render(state) {
+    const sameEditorPlacement = previousState?.editor && state.editor
+      && previousState.editor.mode === state.editor.mode
+      && previousState.editor.documentId === state.editor.documentId
+      && previousState.editor.draft.directoryId === state.editor.draft.directoryId;
+    const sameCollections = previousState
+      && JSON.stringify(previousState.directories) === JSON.stringify(state.directories)
+      && JSON.stringify(previousState.documents) === JSON.stringify(state.documents);
+    if (sameEditorPlacement && sameCollections && patchEditor(state.editor)) {
+      previousState = state;
+      return;
+    }
     if (!renderStatus(state)) {
       content.replaceChildren(...state.directories.map((directory) => renderDirectory(directory, state)));
     }
     if (!directoryModal.classList.contains('hidden')) renderDirectoryManager(state);
+    previousState = state;
   }
 
   manageButton.addEventListener('click', () => {
@@ -238,11 +307,13 @@ export function createDocumentLinksUi({ root = document, store = createDocumentL
     directoryInput.value = '';
     renamingId = null;
     directoryModal.classList.remove('hidden');
+    mainApp.inert = true;
     renderDirectoryManager(store.getState());
     directoryInput.focus();
   });
   function closeDirectoryModal() {
     directoryModal.classList.add('hidden');
+    mainApp.inert = false;
     renamingId = null;
     directoryInput.value = '';
     manageButton.focus();
@@ -271,6 +342,9 @@ export function createDocumentLinksUi({ root = document, store = createDocumentL
   return { load: () => store.load(), reset: () => {
     directoryModal.classList.add('hidden');
     confirmModal.classList.add('hidden');
+    directoryModal.inert = false;
+    mainApp.inert = false;
+    confirmError.textContent = '';
     store.reset();
   } };
 }

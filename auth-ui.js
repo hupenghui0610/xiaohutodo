@@ -73,6 +73,7 @@
     $('mainApp').style.display = 'none';
     $('loginError').textContent = message;
     if (window.D1Storage) window.D1Storage.reset();
+    window.__documentLinksReset?.();
   }
 
   function showApp(user) {
@@ -81,6 +82,7 @@
     $('mainApp').style.display = '';
     $('currentAccount').textContent = user.username;
     $('adminUsersBtn').style.display = user.role === 'admin' ? '' : 'none';
+    window.__documentLinksReady?.(user);
     if (window.__todoAppInit) window.__todoAppInit();
   }
 

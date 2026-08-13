@@ -39,13 +39,15 @@ function setup() {
   const todoPanel = new FakeElement();
   const documentsPanel = new FakeElement();
   const weekNav = new FakeElement();
-  const todoLegend = new FakeElement();
+  const directoryManageBtn = new FakeElement();
+  let documentsActivatedCount = 0;
 
   createFeatureTabs({
     tabs: [todoTab, documentsTab],
     panels: { todo: todoPanel, documents: documentsPanel },
     weekNav,
-    todoLegend,
+    directoryManageBtn,
+    onDocumentsActivated: () => { documentsActivatedCount += 1; },
   });
 
   return {
@@ -54,7 +56,8 @@ function setup() {
     todoPanel,
     documentsPanel,
     weekNav,
-    todoLegend,
+    directoryManageBtn,
+    get documentsActivatedCount() { return documentsActivatedCount; },
   };
 }
 
@@ -68,7 +71,7 @@ test('defaults to the todo tab and exposes only todo controls', () => {
   assert.equal(ui.todoPanel.hidden, false);
   assert.equal(ui.documentsPanel.hidden, true);
   assert.equal(ui.weekNav.hidden, false);
-  assert.equal(ui.todoLegend.hidden, false);
+  assert.equal(ui.directoryManageBtn.hidden, true);
 });
 
 test('clicking documents switches panels and hides week navigation', () => {
@@ -81,13 +84,17 @@ test('clicking documents switches panels and hides week navigation', () => {
   assert.equal(ui.todoPanel.hidden, true);
   assert.equal(ui.documentsPanel.hidden, false);
   assert.equal(ui.weekNav.hidden, true);
-  assert.equal(ui.todoLegend.hidden, true);
+  assert.equal(ui.directoryManageBtn.hidden, false);
+  assert.equal(ui.documentsActivatedCount, 1);
 
   ui.todoTab.dispatch('click');
   assert.equal(ui.todoPanel.hidden, false);
   assert.equal(ui.documentsPanel.hidden, true);
   assert.equal(ui.weekNav.hidden, false);
-  assert.equal(ui.todoLegend.hidden, false);
+  assert.equal(ui.directoryManageBtn.hidden, true);
+
+  ui.documentsTab.dispatch('click');
+  assert.equal(ui.documentsActivatedCount, 2);
 });
 
 test('arrow keys activate and focus the adjacent tab', () => {

@@ -42,6 +42,7 @@ test('page loads and build copies the feature tab module', () => {
 
 test('hidden tab panels cannot be displayed by the sections layout rule', () => {
   assert.match(html, /\.sections\[hidden\]\s*\{\s*display:\s*none;/);
+  assert.match(html, /\.week-nav\[hidden\][\s\S]*?#directoryManageBtn\[hidden\][\s\S]*?display:\s*none;/);
 });
 
 test('footer legend is removed while account controls remain common', () => {

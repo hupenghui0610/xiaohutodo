@@ -298,6 +298,11 @@
       box-shadow: var(--shadow-subtle);
     }
 
+    .week-nav[hidden],
+    #directoryManageBtn[hidden] {
+      display: none;
+    }
+
     .week-labels {
       display: flex;
       flex-direction: column;
@@ -1184,6 +1189,7 @@
     <div class="account-dialog account-dialog--small">
       <h2 id="confirmTitle">确认删除</h2>
       <p id="confirmMessage"></p>
+      <div class="account-error" id="confirmError" aria-live="polite"></div>
       <div class="account-actions">
         <button class="btn btn-ghost" id="confirmCancelBtn" type="button">取消</button>
         <button class="btn btn-danger" id="confirmAcceptBtn" type="button">删除</button>

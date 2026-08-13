@@ -6,6 +6,8 @@ const output = path.join(root, '.pages-dist');
 const staticFiles = [
   'auth-ui.js',
   'd1-storage.js',
+  'document-links-state.js',
+  'document-links-ui.js',
   'feature-tabs.js',
   'icon.ico',
 ];

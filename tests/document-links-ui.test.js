@@ -78,8 +78,9 @@ function setup({ documentCount = 1 } = {}) {
   const root = new FakeDocument();
   const ids = [
     'documentsContent', 'directoryManageBtn', 'directoryModal', 'directoryModalBody',
+    'mainApp',
     'directoryCreateForm', 'directoryNameInput', 'directoryModalError', 'directoryModalCloseBtn',
-    'confirmModal', 'confirmTitle', 'confirmMessage', 'confirmAcceptBtn', 'confirmCancelBtn',
+    'confirmModal', 'confirmTitle', 'confirmMessage', 'confirmError', 'confirmAcceptBtn', 'confirmCancelBtn',
   ];
   ids.forEach((id) => root.add(id, id.includes('Btn') ? 'button' : id.includes('Form') ? 'form' : 'div'));
   root.getElementById('directoryModal').classList.add('hidden');
@@ -153,6 +154,39 @@ test('editor renders title description directory and save cancel controls', asyn
   assert.deepEqual(context.calls, [['cancelEdit']]);
 });
 
+test('draft input updates do not replace the focused editor DOM', async () => {
+  const context = setup({ documentCount: 0 });
+  const editor = {
+    mode: 'add', documentId: null, draft: { directoryId: 'dir-1', title: '', description: '' },
+    errors: {}, error: '', saving: false,
+  };
+  context.update({ editor });
+  const content = context.root.getElementById('documentsContent');
+  const title = find(content, (item) => item.dataset.field === 'title');
+  await title.dispatch('input', { target: { value: '文' } });
+  context.update({ editor: { ...editor, draft: { ...editor.draft, title: '文' } } });
+  assert.equal(find(content, (item) => item.dataset.field === 'title'), title);
+});
+
+test('moving an edit draft renders exactly one editor in the target directory', () => {
+  const context = setup();
+  const secondDirectory = { id: 'dir-2', name: '销售政策', documentCount: 0, createdAt: '2026-01-02', updatedAt: '2026-01-02' };
+  context.update({
+    directories: [...context.store.getState().directories, secondDirectory],
+    editor: {
+      mode: 'edit', documentId: 'doc-1', draft: { directoryId: 'dir-2', title: '标题', description: '描述' },
+      errors: {}, error: '', saving: false,
+    },
+  });
+  const editors = [];
+  const collect = (node) => {
+    if (node.classList.contains('document-editor')) editors.push(node);
+    node.children.forEach(collect);
+  };
+  collect(context.root.getElementById('documentsContent'));
+  assert.equal(editors.length, 1);
+});
+
 test('non-empty directory deletion is disabled with explanatory copy', async () => {
   const { root } = setup();
   await root.getElementById('directoryManageBtn').dispatch('click');
@@ -173,4 +207,40 @@ test('confirmation runs destructive action only after acceptance and restores fo
   await remove.dispatch('click');
   await root.getElementById('confirmAcceptBtn').dispatch('click');
   assert.deepEqual(calls, [['deleteDocument', 'doc-1']]);
+});
+
+test('confirmation keeps the dialog open and displays destructive action errors', async () => {
+  const context = setup();
+  context.store.deleteDocument = async () => { throw new Error('删除失败'); };
+  const remove = find(context.root.getElementById('documentsContent'), (item) => item.dataset.action === 'delete-document');
+  await remove.dispatch('click');
+  await context.root.getElementById('confirmAcceptBtn').dispatch('click');
+  assert.equal(context.root.getElementById('confirmModal').classList.contains('hidden'), false);
+  assert.equal(context.root.getElementById('confirmError').textContent, '删除失败');
+});
+
+test('modals make background layers inert and directory deletion restores focus inside its modal', async () => {
+  const context = setup({ documentCount: 0 });
+  const mainApp = context.root.getElementById('mainApp');
+  await context.root.getElementById('directoryManageBtn').dispatch('click');
+  assert.equal(mainApp.inert, true);
+  const remove = find(context.root.getElementById('directoryModalBody'), (item) => item.dataset.action === 'delete-directory');
+  await remove.dispatch('click');
+  assert.equal(context.root.getElementById('directoryModal').inert, true);
+  await context.root.getElementById('confirmAcceptBtn').dispatch('click');
+  assert.equal(context.root.getElementById('directoryModal').inert, false);
+  assert.equal(context.root.getElementById('directoryNameInput').focused, true);
+  await context.root.getElementById('directoryModalCloseBtn').dispatch('click');
+  assert.equal(mainApp.inert, false);
+});
+
+test('active editor disables other actions with the save-or-cancel explanation', () => {
+  const context = setup();
+  context.update({ editor: {
+    mode: 'edit', documentId: 'doc-1', draft: { directoryId: 'dir-1', title: '标题', description: '描述' },
+    errors: {}, error: '', saving: false,
+  } });
+  const add = find(context.root.getElementById('documentsContent'), (item) => item.dataset.action === 'add-document');
+  assert.equal(add.disabled, true);
+  assert.equal(add.getAttribute('title'), '请先保存或取消当前编辑');
 });

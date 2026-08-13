@@ -108,3 +108,40 @@ test('reset clears scoped state and permits a fresh load', async () => {
   await store.load();
   assert.equal(calls.filter((call) => call.url === '/api/document-directories').length, 2);
 });
+
+test('reset discards an in-flight load from the previous account', async () => {
+  let releaseDirectories;
+  const request = (url) => {
+    if (url === '/api/document-directories') {
+      return new Promise((resolve) => { releaseDirectories = resolve; });
+    }
+    return Promise.resolve({ data: { documents: [] } });
+  };
+  const store = createDocumentLinksStore({ request });
+  const pending = store.load();
+  store.reset();
+  releaseDirectories({ data: { directories } });
+  await pending;
+  assert.equal(store.getState().status, 'idle');
+  assert.deepEqual(store.getState().directories, []);
+});
+
+test('reset discards an in-flight save from the previous account', async () => {
+  let releaseSave;
+  const request = (url, options = {}) => {
+    if (options.method === 'POST') {
+      return new Promise((resolve) => { releaseSave = resolve; });
+    }
+    return Promise.resolve({ data: { directories: [], documents: [] } });
+  };
+  const store = createDocumentLinksStore({ request });
+  store.hydrateForTest({ directories, documents: [] });
+  store.beginAdd('dir-old');
+  store.updateDraft({ title: '标题', description: '描述' });
+  const pending = store.saveDraft();
+  store.reset();
+  releaseSave({ document: { id: 'stale', directoryId: 'dir-old', title: '标题', description: '描述', createdAt: '2026-01-01', updatedAt: '2026-01-01' } });
+  await pending;
+  assert.deepEqual(store.getState().documents, []);
+  assert.equal(store.getState().status, 'idle');
+});
