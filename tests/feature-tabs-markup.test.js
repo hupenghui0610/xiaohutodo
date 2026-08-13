@@ -71,4 +71,8 @@ test('directory management matches the subdued week switcher style', () => {
   assert.match(html, /\.directory-manage-btn\s*\{[\s\S]*?border:\s*1px solid rgba\(31,\s*41,\s*55,\s*0\.9\)/);
   assert.match(html, /\.directory-manage-btn\s*\{[\s\S]*?box-shadow:\s*var\(--shadow-subtle\)/);
   assert.match(html, /\.directory-manage-btn:hover\s*\{[\s\S]*?color:\s*#93c5fd/);
+  assert.ok(
+    html.indexOf('.directory-manage-btn {') > html.indexOf('.btn {'),
+    'directory-specific styles must follow the generic button rule so they win the cascade'
+  );
 });
