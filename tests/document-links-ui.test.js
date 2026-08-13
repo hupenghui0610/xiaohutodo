@@ -74,12 +74,12 @@ function find(root, predicate) {
   return null;
 }
 
-function setup({ documentCount = 1 } = {}) {
+function setup({ documentCount = 1, directories } = {}) {
   const root = new FakeDocument();
   const ids = [
     'documentsContent', 'directoryManageBtn', 'directoryModal', 'directoryModalBody',
     'mainApp',
-    'directoryCreateForm', 'directoryNameInput', 'directoryModalError', 'directoryModalCloseBtn',
+    'directoryCreateForm', 'directoryNameInput', 'directoryCreateBtn', 'directoryModalError', 'directoryModalCloseBtn',
     'confirmModal', 'confirmTitle', 'confirmMessage', 'confirmError', 'confirmAcceptBtn', 'confirmCancelBtn',
   ];
   ids.forEach((id) => root.add(id, id.includes('Btn') ? 'button' : id.includes('Form') ? 'form' : 'div'));
@@ -88,7 +88,7 @@ function setup({ documentCount = 1 } = {}) {
 
   let state = {
     status: 'ready',
-    directories: [{ id: 'dir-1', name: '产品文档', documentCount, createdAt: '2026-01-01', updatedAt: '2026-01-01' }],
+    directories: directories || [{ id: 'dir-1', name: '产品文档', documentCount, sortOrder: 0, createdAt: '2026-01-01', updatedAt: '2026-01-01' }],
     documents: documentCount ? [{
       id: 'doc-1', directoryId: 'dir-1', title: '标题',
       description: '<script>alert(1)</script>', createdAt: '2026-01-01', updatedAt: '2026-01-01',
@@ -112,6 +112,7 @@ function setup({ documentCount = 1 } = {}) {
     createDirectory: async (name) => calls.push(['createDirectory', name]),
     renameDirectory: async (id, name) => calls.push(['renameDirectory', id, name]),
     deleteDirectory: async (id) => calls.push(['deleteDirectory', id]),
+    moveDirectory: async (id, direction) => calls.push(['moveDirectory', id, direction]),
   };
   const ui = createDocumentLinksUi({ root, store });
   return {
@@ -243,4 +244,59 @@ test('active editor disables other actions with the save-or-cancel explanation',
   const add = find(context.root.getElementById('documentsContent'), (item) => item.dataset.action === 'add-document');
   assert.equal(add.disabled, true);
   assert.equal(add.getAttribute('title'), '请先保存或取消当前编辑');
+});
+
+test('directory manager exposes one-step move controls with boundary states', async () => {
+  const context = setup({ documentCount: 0, directories: [
+    { id: 'a', name: 'A', documentCount: 0, sortOrder: 0, createdAt: '2026-01-01', updatedAt: '2026-01-01' },
+    { id: 'b', name: 'B', documentCount: 0, sortOrder: 1, createdAt: '2026-01-02', updatedAt: '2026-01-02' },
+    { id: 'c', name: 'C', documentCount: 0, sortOrder: 2, createdAt: '2026-01-03', updatedAt: '2026-01-03' },
+  ] });
+  await context.root.getElementById('directoryManageBtn').dispatch('click');
+  const body = context.root.getElementById('directoryModalBody');
+  const upButtons = [];
+  const downButtons = [];
+  const collect = (node) => {
+    if (node.dataset.action === 'move-directory-up') upButtons.push(node);
+    if (node.dataset.action === 'move-directory-down') downButtons.push(node);
+    node.children.forEach(collect);
+  };
+  collect(body);
+  assert.equal(upButtons.length, 3);
+  assert.equal(upButtons[0].disabled, true);
+  assert.equal(downButtons[2].disabled, true);
+  await upButtons[1].dispatch('click');
+  assert.deepEqual(context.calls.at(-1), ['moveDirectory', 'b', 'up']);
+});
+
+test('directory move errors remain visible in the management dialog', async () => {
+  const context = setup({ documentCount: 0, directories: [
+    { id: 'a', name: 'A', documentCount: 0, sortOrder: 0, createdAt: '2026-01-01', updatedAt: '2026-01-01' },
+    { id: 'b', name: 'B', documentCount: 0, sortOrder: 1, createdAt: '2026-01-02', updatedAt: '2026-01-02' },
+  ] });
+  context.store.moveDirectory = async () => { throw new Error('移动失败'); };
+  await context.root.getElementById('directoryManageBtn').dispatch('click');
+  const down = find(context.root.getElementById('directoryModalBody'), (item) => item.dataset.action === 'move-directory-down' && !item.disabled);
+  await down.dispatch('click');
+  assert.equal(context.root.getElementById('directoryModalError').textContent, '移动失败');
+  assert.equal(context.root.getElementById('directoryModal').classList.contains('hidden'), false);
+});
+
+test('a pending directory move blocks rename and delete actions', async () => {
+  let releaseMove;
+  const context = setup({ documentCount: 0, directories: [
+    { id: 'a', name: 'A', documentCount: 0, sortOrder: 0, createdAt: '2026-01-01', updatedAt: '2026-01-01' },
+    { id: 'b', name: 'B', documentCount: 0, sortOrder: 1, createdAt: '2026-01-02', updatedAt: '2026-01-02' },
+  ] });
+  context.store.moveDirectory = () => new Promise((resolve) => { releaseMove = resolve; });
+  await context.root.getElementById('directoryManageBtn').dispatch('click');
+  const down = find(context.root.getElementById('directoryModalBody'), (item) => item.dataset.action === 'move-directory-down' && !item.disabled);
+  const pending = down.dispatch('click');
+  const rename = find(context.root.getElementById('directoryModalBody'), (item) => item.dataset.action === 'rename-directory');
+  const remove = find(context.root.getElementById('directoryModalBody'), (item) => item.dataset.action === 'delete-directory');
+  assert.equal(rename.disabled, true);
+  assert.equal(remove.disabled, true);
+  assert.equal(context.root.getElementById('directoryCreateBtn').disabled, true);
+  releaseMove();
+  await pending;
 });

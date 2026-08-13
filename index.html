@@ -274,7 +274,7 @@
 
     .directory-create-form .input { flex: 1; }
     .directory-manager-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
-    .directory-manager-row { padding: 10px 0; border-bottom: 1px solid rgba(148, 163, 184, 0.16); }
+    .directory-manager-row { padding: 10px 0; border-bottom: 1px solid rgba(148, 163, 184, 0.16); flex-wrap: wrap; }
     .directory-manager-row__info { display: flex; flex: 1; flex-direction: column; gap: 3px; min-width: 0; }
     .directory-manager-row__info span { color: var(--text-soft); font-size: 12px; }
 
@@ -1177,7 +1177,7 @@
       <h2 id="directoryModalTitle">目录管理</h2>
       <form id="directoryCreateForm" class="directory-create-form">
         <input class="input" id="directoryNameInput" maxlength="20" placeholder="输入目录名称" required>
-        <button class="btn btn-primary" type="submit">新增目录</button>
+        <button class="btn btn-primary" id="directoryCreateBtn" type="submit">新增目录</button>
       </form>
       <div class="account-error" id="directoryModalError" aria-live="polite"></div>
       <div id="directoryModalBody" class="directory-manager-list"></div>

@@ -4,8 +4,8 @@ import test from 'node:test';
 import { createDocumentLinksStore } from '../document-links-state.js';
 
 const directories = [
-  { id: 'dir-new', name: '新目录', documentCount: 0, createdAt: '2026-01-02', updatedAt: '2026-01-02' },
-  { id: 'dir-old', name: '旧目录', documentCount: 2, createdAt: '2026-01-01', updatedAt: '2026-01-01' },
+  { id: 'dir-new', name: '新目录', documentCount: 0, sortOrder: 1, createdAt: '2026-01-02', updatedAt: '2026-01-02' },
+  { id: 'dir-old', name: '旧目录', documentCount: 2, sortOrder: 0, createdAt: '2026-01-01', updatedAt: '2026-01-01' },
 ];
 const documents = [
   { id: 'doc-old', directoryId: 'dir-old', title: '旧标题', description: '旧描述', createdAt: '2026-01-01', updatedAt: '2026-01-01' },
@@ -31,6 +31,10 @@ function setup(options = {}) {
       const fields = JSON.parse(requestOptions.body);
       const original = documents.find((item) => item.id === fields.id);
       return { document: { ...original, ...fields, updatedAt: '2026-02-01' } };
+    }
+    if (requestOptions.method === 'PUT' && url === '/api/document-directories') {
+      if (options.moveError) throw options.moveError;
+      return { data: { directories: [directories[0], directories[1]].map((item, index) => ({ ...item, sortOrder: index })) } };
     }
     return { code: 'OK' };
   };
@@ -144,4 +148,56 @@ test('reset discards an in-flight save from the previous account', async () => {
   await pending;
   assert.deepEqual(store.getState().documents, []);
   assert.equal(store.getState().status, 'idle');
+});
+
+test('moveDirectory sends direction and replaces directories with server order', async () => {
+  const { store, calls } = setupReady();
+  assert.equal(await store.moveDirectory('dir-old', 'down'), true);
+  assert.deepEqual(JSON.parse(calls[0].body), { id: 'dir-old', direction: 'down' });
+  assert.deepEqual(store.getState().directories.map((item) => item.id), ['dir-new', 'dir-old']);
+});
+
+test('failed directory move preserves the current order', async () => {
+  const { store } = setupReady({ moveError: new Error('移动失败') });
+  const before = store.getState().directories.map((item) => item.id);
+  await assert.rejects(store.moveDirectory('dir-old', 'down'), /移动失败/);
+  assert.deepEqual(store.getState().directories.map((item) => item.id), before);
+});
+
+test('directory move rejects a malformed success response without clearing state', async () => {
+  const calls = [];
+  const store = createDocumentLinksStore({ request: async (url, options) => {
+    calls.push({ url, options });
+    return { code: 'OK' };
+  } });
+  store.hydrateForTest({ directories, documents: [] });
+  await assert.rejects(store.moveDirectory('dir-old', 'down'), /返回数据无效/);
+  assert.deepEqual(store.getState().directories.map((item) => item.id), ['dir-old', 'dir-new']);
+});
+
+test('reset discards an in-flight directory move from the previous account', async () => {
+  let releaseMove;
+  const request = (_url, options = {}) => options.method === 'PUT'
+    ? new Promise((resolve) => { releaseMove = resolve; })
+    : Promise.resolve({ data: { directories: [], documents: [] } });
+  const store = createDocumentLinksStore({ request });
+  store.hydrateForTest({ directories, documents: [] });
+  const pending = store.moveDirectory('dir-old', 'down');
+  store.reset();
+  releaseMove({ data: { directories: [directories[0], directories[1]] } });
+  assert.equal(await pending, false);
+  assert.deepEqual(store.getState().directories, []);
+});
+
+test('directory mutations are serialized while another directory write is pending', async () => {
+  let releaseCreate;
+  const request = (_url, options = {}) => options.method === 'POST'
+    ? new Promise((resolve) => { releaseCreate = resolve; })
+    : Promise.resolve({ data: { directories } });
+  const store = createDocumentLinksStore({ request });
+  store.hydrateForTest({ directories, documents: [] });
+  const pendingCreate = store.createDirectory('Custom');
+  await assert.rejects(store.moveDirectory('dir-old', 'down'), /目录操作正在进行/);
+  releaseCreate({ directory: { id: 'custom', name: 'Custom', sortOrder: 2, createdAt: '2026-03-01', updatedAt: '2026-03-01' } });
+  await pendingCreate;
 });

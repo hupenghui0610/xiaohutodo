@@ -36,6 +36,7 @@ export function mapDirectory(row) {
     id: row.id,
     name: row.name,
     documentCount: Number(row.document_count ?? 0),
+    sortOrder: Number(row.sort_order ?? 0),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

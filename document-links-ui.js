@@ -15,6 +15,7 @@ export function createDocumentLinksUi({ root = document, store = createDocumentL
   const directoryBody = root.getElementById('directoryModalBody');
   const directoryForm = root.getElementById('directoryCreateForm');
   const directoryInput = root.getElementById('directoryNameInput');
+  const directoryCreateButton = root.getElementById('directoryCreateBtn');
   const directoryError = root.getElementById('directoryModalError');
   const directoryClose = root.getElementById('directoryModalCloseBtn');
   const confirmModal = root.getElementById('confirmModal');
@@ -26,6 +27,7 @@ export function createDocumentLinksUi({ root = document, store = createDocumentL
   let confirmState = null;
   let renamingId = null;
   let renameValue = '';
+  let movingDirectoryId = null;
 
   function button(className, text, action) {
     const node = element(root, 'button', className, text);
@@ -204,7 +206,9 @@ export function createDocumentLinksUi({ root = document, store = createDocumentL
 
   function renderDirectoryManager(state) {
     directoryBody.replaceChildren();
-    state.directories.forEach((directory) => {
+    directoryInput.disabled = movingDirectoryId !== null;
+    directoryCreateButton.disabled = movingDirectoryId !== null;
+    state.directories.forEach((directory, index) => {
       const row = element(root, 'div', 'directory-manager-row');
       if (renamingId === directory.id) {
         const input = element(root, 'input', 'input');
@@ -229,19 +233,43 @@ export function createDocumentLinksUi({ root = document, store = createDocumentL
         const info = element(root, 'div', 'directory-manager-row__info');
         info.append(element(root, 'strong', '', directory.name), element(root, 'span', '', `${directory.documentCount} 条文档`));
         const rename = button('btn btn-ghost', '改名', 'rename-directory');
+        rename.disabled = movingDirectoryId !== null;
         rename.addEventListener('click', () => {
           renamingId = directory.id;
           renameValue = directory.name;
           renderDirectoryManager(store.getState());
         });
         const remove = button('btn btn-danger', '删除', 'delete-directory');
-        remove.disabled = directory.documentCount > 0;
+        remove.disabled = directory.documentCount > 0 || movingDirectoryId !== null;
         remove.setAttribute('title', remove.disabled ? '请先删除或移动目录内的文档链接' : '删除目录');
         remove.addEventListener('click', () => openConfirmation({
           title: '删除目录', message: `确认删除空目录“${directory.name}”吗？`, trigger: remove,
           action: () => store.deleteDirectory(directory.id),
         }));
-        row.append(info, rename, remove);
+        const moveUp = button('btn btn-ghost', '上移', 'move-directory-up');
+        moveUp.disabled = index === 0 || movingDirectoryId !== null || renamingId !== null;
+        moveUp.setAttribute('aria-label', `上移目录 ${directory.name}`);
+        moveUp.setAttribute('title', index === 0 ? '已经是第一个目录' : '向上移动一位');
+        const moveDown = button('btn btn-ghost', '下移', 'move-directory-down');
+        moveDown.disabled = index === state.directories.length - 1 || movingDirectoryId !== null || renamingId !== null;
+        moveDown.setAttribute('aria-label', `下移目录 ${directory.name}`);
+        moveDown.setAttribute('title', index === state.directories.length - 1 ? '已经是最后一个目录' : '向下移动一位');
+        const move = async (direction) => {
+          directoryError.textContent = '';
+          movingDirectoryId = directory.id;
+          renderDirectoryManager(store.getState());
+          try {
+            await store.moveDirectory(directory.id, direction);
+          } catch (exception) {
+            directoryError.textContent = exception.message || '目录移动失败';
+          } finally {
+            movingDirectoryId = null;
+            renderDirectoryManager(store.getState());
+          }
+        };
+        moveUp.addEventListener('click', () => move('up'));
+        moveDown.addEventListener('click', () => move('down'));
+        row.append(info, moveUp, moveDown, rename, remove);
       }
       directoryBody.append(row);
     });
@@ -321,6 +349,7 @@ export function createDocumentLinksUi({ root = document, store = createDocumentL
   directoryClose.addEventListener('click', closeDirectoryModal);
   directoryForm.addEventListener('submit', async (event) => {
     event.preventDefault();
+    if (movingDirectoryId !== null) return;
     directoryError.textContent = '';
     try {
       await store.createDirectory(directoryInput.value);

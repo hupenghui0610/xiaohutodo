@@ -55,7 +55,7 @@ export async function documentApiRequest(url, options = {}) {
 
 function sortDirectories(items) {
   return items.slice().sort((a, b) =>
-    a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id)
+    (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id)
   );
 }
 
@@ -72,6 +72,7 @@ function clone(value) {
 export function createDocumentLinksStore({ request = documentApiRequest } = {}) {
   let state = freshState();
   let generation = 0;
+  let directoryMutationPending = false;
   const subscribers = new Set();
 
   function freshState() {
@@ -229,46 +230,81 @@ export function createDocumentLinksStore({ request = documentApiRequest } = {}) 
   }
 
   async function createDirectory(name) {
+    if (directoryMutationPending) throw new Error('目录操作正在进行，请稍候');
     const validationError = validateDirectoryName(name);
     if (validationError) throw new Error(validationError);
     const key = directoryNameKey(name);
     if (state.directories.some((item) => directoryNameKey(item.name) === key)) throw new Error('目录名称已存在');
     const operationGeneration = generation;
-    const data = await request('/api/document-directories', {
-      method: 'POST', body: JSON.stringify({ name: normalizeText(name) }),
-    });
-    if (operationGeneration !== generation) return null;
-    setState({ directories: recalculate([...state.directories, data.directory], state.documents) });
-    return data.directory;
+    directoryMutationPending = true;
+    try {
+      const data = await request('/api/document-directories', {
+        method: 'POST', body: JSON.stringify({ name: normalizeText(name) }),
+      });
+      if (operationGeneration !== generation) return null;
+      setState({ directories: recalculate([...state.directories, data.directory], state.documents) });
+      return data.directory;
+    } finally {
+      directoryMutationPending = false;
+    }
   }
 
   async function renameDirectory(id, name) {
+    if (directoryMutationPending) throw new Error('目录操作正在进行，请稍候');
     const validationError = validateDirectoryName(name);
     if (validationError) throw new Error(validationError);
     const key = directoryNameKey(name);
     if (state.directories.some((item) => item.id !== id && directoryNameKey(item.name) === key)) throw new Error('目录名称已存在');
     const operationGeneration = generation;
-    const data = await request('/api/document-directories', {
-      method: 'PUT', body: JSON.stringify({ id, name: normalizeText(name) }),
-    });
-    if (operationGeneration !== generation) return null;
-    setState({ directories: recalculate(state.directories.map((item) =>
-      item.id === id ? { ...item, ...data.directory, createdAt: item.createdAt } : item
-    ), state.documents) });
-    return data.directory;
+    directoryMutationPending = true;
+    try {
+      const data = await request('/api/document-directories', {
+        method: 'PUT', body: JSON.stringify({ id, name: normalizeText(name) }),
+      });
+      if (operationGeneration !== generation) return null;
+      setState({ directories: recalculate(state.directories.map((item) =>
+        item.id === id ? { ...item, ...data.directory, createdAt: item.createdAt } : item
+      ), state.documents) });
+      return data.directory;
+    } finally {
+      directoryMutationPending = false;
+    }
   }
 
   async function deleteDirectory(id) {
+    if (directoryMutationPending) throw new Error('目录操作正在进行，请稍候');
     const operationGeneration = generation;
-    await request(`/api/document-directories?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
-    if (operationGeneration !== generation) return false;
-    setState({ directories: state.directories.filter((item) => item.id !== id) });
-    return true;
+    directoryMutationPending = true;
+    try {
+      await request(`/api/document-directories?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+      if (operationGeneration !== generation) return false;
+      setState({ directories: state.directories.filter((item) => item.id !== id) });
+      return true;
+    } finally {
+      directoryMutationPending = false;
+    }
+  }
+
+  async function moveDirectory(id, direction) {
+    if (directoryMutationPending) throw new Error('目录操作正在进行，请稍候');
+    const operationGeneration = generation;
+    directoryMutationPending = true;
+    try {
+      const data = await request('/api/document-directories', {
+        method: 'PUT', body: JSON.stringify({ id, direction }),
+      });
+      if (operationGeneration !== generation) return false;
+      if (!Array.isArray(data.data?.directories)) throw new Error('目录排序返回数据无效');
+      setState({ directories: recalculate(data.data.directories, state.documents) });
+      return true;
+    } finally {
+      directoryMutationPending = false;
+    }
   }
 
   return {
     getState, subscribe, load, reset, hydrateForTest,
     beginAdd, beginEdit, cancelEdit, updateDraft, saveDraft,
-    deleteDocument, createDirectory, renameDirectory, deleteDirectory,
+    deleteDocument, createDirectory, renameDirectory, deleteDirectory, moveDirectory,
   };
 }

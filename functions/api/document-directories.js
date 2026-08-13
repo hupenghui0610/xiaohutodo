@@ -9,14 +9,14 @@ import {
 } from '../_lib/document-links.js';
 
 const DIRECTORY_SELECT = `
-  SELECT d.id, d.name, d.created_at, d.updated_at,
+  SELECT d.id, d.name, d.sort_order, d.created_at, d.updated_at,
          COUNT(l.id) AS document_count
   FROM document_directories d
   LEFT JOIN document_links l
     ON l.directory_id = d.id AND l.user_id = d.user_id
   WHERE d.user_id = ?
   GROUP BY d.id
-  ORDER BY d.created_at ASC, d.id ASC`;
+  ORDER BY d.sort_order ASC, d.created_at ASC, d.id ASC`;
 
 function nowIso() {
   return new Date().toISOString();
@@ -35,13 +35,14 @@ async function ensureInitialDirectories(db, userId) {
   const timestamp = nowIso();
   const statements = INITIAL_DIRECTORY_NAMES.map((name, index) => db.prepare(
     `INSERT INTO document_directories
-      (id, user_id, name, name_key, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?)`
+      (id, user_id, name, name_key, sort_order, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`
   ).bind(
     crypto.randomUUID(),
     userId,
     name,
     directoryNameKey(name),
+    index,
     new Date(Date.parse(timestamp) + index).toISOString(),
     timestamp
   ));
@@ -76,8 +77,8 @@ export async function onRequest({ request, env }) {
   const userId = auth.user.id;
 
   try {
+    await ensureInitialDirectories(env.DB, userId);
     if (method === 'GET') {
-      await ensureInitialDirectories(env.DB, userId);
       return json({ code: 'OK', data: { directories: await listDirectories(env.DB, userId) } });
     }
 
@@ -90,16 +91,51 @@ export async function onRequest({ request, env }) {
       const id = crypto.randomUUID();
       await env.DB.prepare(
         `INSERT INTO document_directories
-          (id, user_id, name, name_key, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?)`
-      ).bind(id, userId, name, directoryNameKey(name), timestamp, timestamp).run();
-      return json({ code: 'OK', directory: mapDirectory({
-        id, name, document_count: 0, created_at: timestamp, updated_at: timestamp,
-      }) }, 201);
+          (id, user_id, name, name_key, sort_order, created_at, updated_at)
+         SELECT ?, ?, ?, ?, COALESCE(MAX(sort_order), -1) + 1, ?, ?
+         FROM document_directories WHERE user_id = ?`
+      ).bind(id, userId, name, directoryNameKey(name), timestamp, timestamp, userId).run();
+      const created = (await listDirectories(env.DB, userId)).find((item) => item.id === id);
+      return json({ code: 'OK', directory: created }, 201);
     }
 
     if (method === 'PUT') {
       const id = normalizeText(body?.id);
+      if (Object.hasOwn(body || {}, 'direction')) {
+        if (!id || !['up', 'down'].includes(body.direction)) {
+          return error('INVALID_DIRECTORY_MOVE', '目录移动参数无效', 400);
+        }
+        const timestamp = nowIso();
+        const offset = body.direction === 'up' ? -1 : 1;
+        const result = await env.DB.prepare(
+          `WITH ordered AS (
+             SELECT id, sort_order, ROW_NUMBER() OVER (ORDER BY sort_order, created_at, id) AS position
+             FROM document_directories WHERE user_id = ?
+           ), pair AS (
+             SELECT current.id AS current_id, current.sort_order AS current_order,
+                    adjacent.id AS adjacent_id, adjacent.sort_order AS adjacent_order
+             FROM ordered current
+             JOIN ordered adjacent ON adjacent.position = current.position + ?
+             WHERE current.id = ?
+           )
+           UPDATE document_directories
+           SET sort_order = CASE id
+                 WHEN (SELECT current_id FROM pair) THEN (SELECT adjacent_order FROM pair)
+                 ELSE (SELECT current_order FROM pair)
+               END,
+               updated_at = ?
+           WHERE user_id = ?
+             AND id IN ((SELECT current_id FROM pair), (SELECT adjacent_id FROM pair))`
+        ).bind(userId, offset, id, timestamp, userId).run();
+        if (!result.meta?.changes) {
+          const owned = await env.DB.prepare(
+            'SELECT id FROM document_directories WHERE id = ? AND user_id = ?'
+          ).bind(id, userId).first();
+          if (!owned) return error('DIRECTORY_NOT_FOUND', '目录不存在', 404);
+          return error('DIRECTORY_MOVE_BOUNDARY', '目录已经位于边界', 400);
+        }
+        return json({ code: 'OK', data: { directories: await listDirectories(env.DB, userId) } });
+      }
       const validationError = validateDirectoryName(body?.name);
       if (!id || validationError) return error('INVALID_DIRECTORY', validationError || '缺少目录 ID', 400);
       const name = normalizeText(body.name);
@@ -110,9 +146,8 @@ export async function onRequest({ request, env }) {
          WHERE id = ? AND user_id = ?`
       ).bind(name, directoryNameKey(name), timestamp, id, userId).run();
       if (!result.meta?.changes) return error('DIRECTORY_NOT_FOUND', '目录不存在', 404);
-      return json({ code: 'OK', directory: mapDirectory({
-        id, name, document_count: 0, created_at: '', updated_at: timestamp,
-      }) });
+      const renamed = (await listDirectories(env.DB, userId)).find((item) => item.id === id);
+      return json({ code: 'OK', directory: renamed });
     }
 
     if (method === 'DELETE') {

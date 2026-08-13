@@ -42,12 +42,29 @@ test('create trims names and rejects case-insensitive duplicates', async () => {
   assert.equal((await duplicate.json()).code, 'DIRECTORY_NAME_CONFLICT');
 });
 
+test('direct create initializes defaults first and appends after them', async () => {
+  const { db } = createDocumentDb();
+  const created = await (await call(db, 'POST', { name: 'Custom' })).json();
+  assert.equal(created.directory.sortOrder, 3);
+  const listed = await (await call(db, 'GET')).json();
+  assert.deepEqual(listed.data.directories.map((item) => item.sortOrder), [0, 1, 2, 3]);
+});
+
 test('rename is account scoped', async () => {
   const { db } = createDocumentDb({ initializedUsers: ['user-1'], directories: [
     { id: 'foreign', user_id: 'user-2', name: '销售', name_key: '销售', created_at: '2026-01-01', updated_at: '2026-01-01' },
   ] });
   const response = await call(db, 'PUT', { id: 'foreign', name: '新名称' });
   assert.equal(response.status, 404);
+});
+
+test('rename response preserves the saved sort order', async () => {
+  const { db } = createDocumentDb({ initializedUsers: ['user-1'], directories: [
+    { id: 'third', user_id: 'user-1', name: 'Old', name_key: 'old', sort_order: 2, created_at: '2026-01-03', updated_at: '2026-01-03' },
+  ] });
+  const response = await call(db, 'PUT', { id: 'third', name: 'New' });
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).directory.sortOrder, 2);
 });
 
 test('list returns stable order and account-scoped document counts', async () => {
@@ -60,6 +77,41 @@ test('list returns stable order and account-scoped document counts', async () =>
   ] });
   const data = await (await call(db, 'GET')).json();
   assert.deepEqual(data.data.directories.map((item) => [item.id, item.documentCount]), [['a', 1], ['b', 0]]);
+});
+
+test('list uses saved sort order and create appends to the end', async () => {
+  const { db } = createDocumentDb({ initializedUsers: ['user-1'], directories: [
+    { id: 'later-created', user_id: 'user-1', name: 'A', name_key: 'a', sort_order: 0, created_at: '2026-01-02', updated_at: '2026-01-02' },
+    { id: 'earlier-created', user_id: 'user-1', name: 'B', name_key: 'b', sort_order: 1, created_at: '2026-01-01', updated_at: '2026-01-01' },
+  ] });
+  const listed = await (await call(db, 'GET')).json();
+  assert.deepEqual(listed.data.directories.map((item) => [item.id, item.sortOrder]), [
+    ['later-created', 0], ['earlier-created', 1],
+  ]);
+  const created = await (await call(db, 'POST', { name: 'C' })).json();
+  assert.equal(created.directory.sortOrder, 2);
+});
+
+test('move swaps only adjacent owned directories', async () => {
+  const { db } = createDocumentDb({ initializedUsers: ['user-1'], directories: [
+    { id: 'a', user_id: 'user-1', name: 'A', name_key: 'a', sort_order: 0, created_at: '2026-01-01', updated_at: '2026-01-01' },
+    { id: 'b', user_id: 'user-1', name: 'B', name_key: 'b', sort_order: 1, created_at: '2026-01-02', updated_at: '2026-01-02' },
+    { id: 'c', user_id: 'user-1', name: 'C', name_key: 'c', sort_order: 2, created_at: '2026-01-03', updated_at: '2026-01-03' },
+  ] });
+  const response = await call(db, 'PUT', { id: 'b', direction: 'up' });
+  assert.equal(response.status, 200);
+  const data = await response.json();
+  assert.deepEqual(data.data.directories.map((item) => item.id), ['b', 'a', 'c']);
+});
+
+test('move rejects boundaries invalid directions and foreign directories', async () => {
+  const { db } = createDocumentDb({ initializedUsers: ['user-1'], directories: [
+    { id: 'a', user_id: 'user-1', name: 'A', name_key: 'a', sort_order: 0, created_at: '2026-01-01', updated_at: '2026-01-01' },
+    { id: 'foreign', user_id: 'user-2', name: 'F', name_key: 'f', sort_order: 0, created_at: '2026-01-01', updated_at: '2026-01-01' },
+  ] });
+  assert.equal((await call(db, 'PUT', { id: 'a', direction: 'up' })).status, 400);
+  assert.equal((await call(db, 'PUT', { id: 'a', direction: 'sideways' })).status, 400);
+  assert.equal((await call(db, 'PUT', { id: 'foreign', direction: 'down' })).status, 404);
 });
 
 test('delete refuses non-empty directories and removes empty ones', async () => {

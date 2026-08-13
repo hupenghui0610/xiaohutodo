@@ -64,6 +64,7 @@ CREATE TABLE IF NOT EXISTS document_directories (
   user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   name_key TEXT NOT NULL,
+  sort_order INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
   UNIQUE (user_id, name_key)
@@ -81,6 +82,8 @@ CREATE TABLE IF NOT EXISTS document_links (
 
 CREATE INDEX IF NOT EXISTS idx_document_directories_user_created
   ON document_directories(user_id, created_at, id);
+CREATE INDEX IF NOT EXISTS idx_document_directories_user_order
+  ON document_directories(user_id, sort_order, created_at, id);
 CREATE INDEX IF NOT EXISTS idx_document_links_user_created
   ON document_links(user_id, created_at DESC, id);
 CREATE INDEX IF NOT EXISTS idx_document_links_user_directory

@@ -4,7 +4,7 @@ function changes(count) {
 
 function sortedDirectories(items) {
   return items.slice().sort((a, b) =>
-    a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id)
+    (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id)
   );
 }
 
@@ -49,11 +49,17 @@ export function createDocumentDb(options = {}) {
       return changes(1);
     }
     if (normalized.startsWith('INSERT INTO document_directories')) {
-      const [id, user_id, name, name_key, created_at, updated_at] = values;
+      const selectInsert = normalized.includes('COALESCE(MAX(sort_order)');
+      const [id, user_id, name, name_key] = values;
+      const sort_order = selectInsert
+        ? Math.max(-1, ...state.directories.filter((item) => item.user_id === user_id).map((item) => item.sort_order ?? 0)) + 1
+        : values[4];
+      const created_at = values[selectInsert ? 4 : 5];
+      const updated_at = values[selectInsert ? 5 : 6];
       if (state.directories.some((item) => item.user_id === user_id && item.name_key === name_key)) {
         throw new Error('UNIQUE constraint failed: document_directories.user_id, document_directories.name_key');
       }
-      state.directories.push({ id, user_id, name, name_key, created_at, updated_at });
+      state.directories.push({ id, user_id, name, name_key, sort_order, created_at, updated_at });
       return changes(1);
     }
     if (normalized.includes('FROM document_directories d') && normalized.includes('document_count')) {
@@ -64,10 +70,28 @@ export function createDocumentDb(options = {}) {
         ).length,
       }));
     }
+    if (normalized.startsWith('WITH ordered AS')) {
+      const [userId, offset, id, updatedAt] = values;
+      const ordered = sortedDirectories(state.directories.filter((item) => item.user_id === userId));
+      const index = ordered.findIndex((item) => item.id === id);
+      const adjacent = ordered[index + offset];
+      if (index < 0 || !adjacent) return changes(0);
+      const current = ordered[index];
+      [current.sort_order, adjacent.sort_order] = [adjacent.sort_order, current.sort_order];
+      current.updated_at = adjacent.updated_at = updatedAt;
+      return changes(2);
+    }
     if (normalized.startsWith('SELECT id FROM document_directories')) {
       const [id, userId] = values;
       const directory = state.directories.find((item) => item.id === id && item.user_id === userId);
       return directory ? { id: directory.id } : null;
+    }
+    if (normalized.startsWith('UPDATE document_directories SET sort_order')) {
+      const [sortOrder, updatedAt, id, userId] = values;
+      const directory = state.directories.find((item) => item.id === id && item.user_id === userId);
+      if (!directory) return changes(0);
+      Object.assign(directory, { sort_order: sortOrder, updated_at: updatedAt });
+      return changes(1);
     }
     if (normalized.startsWith('UPDATE document_directories SET')) {
       const [name, nameKey, updatedAt, id, userId] = values;
