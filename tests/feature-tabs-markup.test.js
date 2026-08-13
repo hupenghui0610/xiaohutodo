@@ -35,3 +35,12 @@ test('page loads and build copies the feature tab module', () => {
   assert.match(html, /<script type="module" src="feature-tabs\.js"><\/script>/);
   assert.match(buildScript, /'feature-tabs\.js'/);
 });
+
+test('hidden tab panels cannot be displayed by the sections layout rule', () => {
+  assert.match(html, /\.sections\[hidden\]\s*\{\s*display:\s*none;/);
+});
+
+test('footer legend is todo-specific while account controls remain common', () => {
+  assert.match(html, /<div class="legend" id="todoLegend">/);
+  assert.match(html, /<\/div>\s*<div class="footer-right">[\s\S]*id="currentAccount"/);
+});

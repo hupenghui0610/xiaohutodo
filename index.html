@@ -270,6 +270,10 @@
       margin-top: 4px;
     }
 
+    .sections[hidden] {
+      display: none;
+    }
+
     .panel {
       /* A 区：无限期 · 蓝紫暗色 */
       background: linear-gradient(to right, rgba(56, 189, 248, 0.18) 0%, rgba(15, 23, 42, 0.96) 35%, rgba(15, 23, 42, 1) 100%);
@@ -1044,7 +1048,7 @@
     </main>
 
     <footer class="app-footer">
-      <div class="legend">
+      <div class="legend" id="todoLegend">
         <div class="legend-item">
           <span class="legend-color legend-color-a"></span>
           <span>无限期</span>

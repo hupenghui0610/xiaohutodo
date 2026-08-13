@@ -39,14 +39,23 @@ function setup() {
   const todoPanel = new FakeElement();
   const documentsPanel = new FakeElement();
   const weekNav = new FakeElement();
+  const todoLegend = new FakeElement();
 
   createFeatureTabs({
     tabs: [todoTab, documentsTab],
     panels: { todo: todoPanel, documents: documentsPanel },
     weekNav,
+    todoLegend,
   });
 
-  return { todoTab, documentsTab, todoPanel, documentsPanel, weekNav };
+  return {
+    todoTab,
+    documentsTab,
+    todoPanel,
+    documentsPanel,
+    weekNav,
+    todoLegend,
+  };
 }
 
 test('defaults to the todo tab and exposes only todo controls', () => {
@@ -59,6 +68,7 @@ test('defaults to the todo tab and exposes only todo controls', () => {
   assert.equal(ui.todoPanel.hidden, false);
   assert.equal(ui.documentsPanel.hidden, true);
   assert.equal(ui.weekNav.hidden, false);
+  assert.equal(ui.todoLegend.hidden, false);
 });
 
 test('clicking documents switches panels and hides week navigation', () => {
@@ -71,11 +81,13 @@ test('clicking documents switches panels and hides week navigation', () => {
   assert.equal(ui.todoPanel.hidden, true);
   assert.equal(ui.documentsPanel.hidden, false);
   assert.equal(ui.weekNav.hidden, true);
+  assert.equal(ui.todoLegend.hidden, true);
 
   ui.todoTab.dispatch('click');
   assert.equal(ui.todoPanel.hidden, false);
   assert.equal(ui.documentsPanel.hidden, true);
   assert.equal(ui.weekNav.hidden, false);
+  assert.equal(ui.todoLegend.hidden, false);
 });
 
 test('arrow keys activate and focus the adjacent tab', () => {
