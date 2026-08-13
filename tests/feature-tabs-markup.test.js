@@ -58,3 +58,9 @@ test('document editor uses the compact two-row responsive layout', () => {
   assert.match(html, /\.document-editor__footer\s*\{[\s\S]*?justify-content:\s*space-between/);
   assert.match(html, /@media\s*\(max-width:\s*768px\)[\s\S]*?\.document-editor__top-fields[\s\S]*?grid-template-columns:\s*minmax\(0,\s*1fr\)/);
 });
+
+test('document editor uses restrained field corners while actions stay pill shaped', () => {
+  assert.match(html, /\.document-editor\s*\{[\s\S]*?border-radius:\s*var\(--radius-md\)/);
+  assert.match(html, /\.document-editor \.input\s*\{[\s\S]*?border-radius:\s*6px/);
+  assert.match(html, /\.btn\s*\{[\s\S]*?border-radius:\s*999px/);
+});
