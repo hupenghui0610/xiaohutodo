@@ -312,6 +312,21 @@
       box-shadow: var(--shadow-subtle);
     }
 
+    .directory-manage-btn {
+      padding: 7px 14px;
+      background: rgba(17, 24, 39, 0.82);
+      border: 1px solid rgba(31, 41, 55, 0.9);
+      color: var(--text-muted);
+      box-shadow: var(--shadow-subtle);
+    }
+
+    .directory-manage-btn:hover {
+      background: rgba(31, 41, 55, 0.95);
+      border-color: rgba(96, 165, 250, 0.72);
+      color: #93c5fd;
+      box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.24), var(--shadow-subtle);
+    }
+
     .week-nav[hidden],
     #directoryManageBtn[hidden] {
       display: none;
@@ -1105,7 +1120,7 @@
           <button class="btn btn-icon" id="nextWeekBtn" title="下一周">›</button>
         </div>
       </div>
-      <button class="btn btn-primary" id="directoryManageBtn" type="button" hidden>目录管理</button>
+      <button id="directoryManageBtn" class="btn directory-manage-btn" type="button" hidden>目录管理</button>
     </header>
 
     <main

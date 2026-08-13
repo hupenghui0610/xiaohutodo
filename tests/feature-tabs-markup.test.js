@@ -64,3 +64,11 @@ test('document editor uses restrained field corners while actions stay pill shap
   assert.match(html, /\.document-editor \.input\s*\{[\s\S]*?border-radius:\s*6px/);
   assert.match(html, /\.btn\s*\{[\s\S]*?border-radius:\s*999px/);
 });
+
+test('directory management matches the subdued week switcher style', () => {
+  assert.match(html, /id="directoryManageBtn"[^>]*class="btn directory-manage-btn"/);
+  assert.match(html, /\.directory-manage-btn\s*\{[\s\S]*?background:\s*rgba\(17,\s*24,\s*39,\s*0\.82\)/);
+  assert.match(html, /\.directory-manage-btn\s*\{[\s\S]*?border:\s*1px solid rgba\(31,\s*41,\s*55,\s*0\.9\)/);
+  assert.match(html, /\.directory-manage-btn\s*\{[\s\S]*?box-shadow:\s*var\(--shadow-subtle\)/);
+  assert.match(html, /\.directory-manage-btn:hover\s*\{[\s\S]*?color:\s*#93c5fd/);
+});
