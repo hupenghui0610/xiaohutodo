@@ -154,13 +154,138 @@
       box-shadow: 0 0 12px rgba(37, 99, 235, 0.75);
     }
 
-    .documents-placeholder {
-      min-height: 180px;
-      display: grid;
-      place-items: center;
-      color: var(--text-muted);
-      font-size: 16px;
+    .document-directories {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
     }
+
+    .document-directory {
+      background: linear-gradient(110deg, rgba(59, 130, 246, 0.14), rgba(15, 23, 42, 0.98) 38%);
+    }
+
+    .document-directory__header,
+    .directory-manager-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .document-directory__body {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+    .document-row {
+      display: grid;
+      grid-template-columns: minmax(120px, 220px) minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 12px;
+      min-height: 44px;
+      padding: 8px 10px;
+      border: 1px solid rgba(55, 65, 81, 0.72);
+      border-radius: var(--radius-md);
+      background: rgba(15, 23, 42, 0.86);
+    }
+
+    .document-row__title {
+      padding: 0;
+      border: 0;
+      background: transparent;
+      color: #bfdbfe;
+      font: inherit;
+      font-size: 14px;
+      font-weight: 600;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .document-row__title:hover { color: #ffffff; }
+    .document-row__title:disabled { color: var(--text-muted); cursor: not-allowed; }
+
+    .document-row__description {
+      min-width: 0;
+      color: var(--text-muted);
+      font-size: 13px;
+      line-height: 1.55;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      user-select: text;
+    }
+
+    .document-row__actions {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .document-editor {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 12px;
+      border: 1px solid rgba(96, 165, 250, 0.65);
+      border-radius: var(--radius-md);
+      background: rgba(15, 23, 42, 0.96);
+      box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.18);
+    }
+
+    .document-editor__fields {
+      display: grid;
+      grid-template-columns: minmax(140px, 220px) minmax(220px, 1fr) minmax(140px, 190px);
+      gap: 12px;
+      align-items: start;
+    }
+
+    .document-field {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      min-width: 0;
+    }
+
+    .document-field__label { color: var(--text-soft); font-size: 12px; }
+    .document-description-input { min-height: 70px; resize: vertical; border-radius: var(--radius-md); }
+    .field-error { min-height: 17px; color: #fca5a5; font-size: 12px; }
+    .character-count { color: var(--text-soft); font-size: 11px; text-align: right; }
+    .document-editor__error { text-align: right; }
+
+    .document-empty {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      min-height: 64px;
+      padding: 16px;
+      color: var(--text-soft);
+      font-size: 13px;
+      text-align: center;
+    }
+
+    .directory-create-form {
+      display: flex;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .directory-create-form .input { flex: 1; }
+    .directory-manager-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+    .directory-manager-row { padding: 10px 0; border-bottom: 1px solid rgba(148, 163, 184, 0.16); }
+    .directory-manager-row__info { display: flex; flex: 1; flex-direction: column; gap: 3px; min-width: 0; }
+    .directory-manager-row__info span { color: var(--text-soft); font-size: 12px; }
+
+    .btn-danger {
+      background: var(--danger-soft);
+      color: #fecaca;
+      border-color: rgba(248, 113, 113, 0.55);
+    }
+
+    .btn-danger:hover { background: rgba(127, 29, 29, 0.68); color: #fff; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
 
     .week-nav {
       display: flex;
@@ -760,35 +885,12 @@
       padding-top: 6px;
       border-top: 1px solid rgba(31, 41, 55, 0.9);
       display: flex;
-      justify-content: space-between;
+      justify-content: flex-end;
       align-items: center;
       font-size: 12px;
       color: var(--text-soft);
       gap: 8px;
     }
-
-    .legend {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-    }
-
-    .legend-item {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-    }
-
-    .legend-color {
-      width: 10px;
-      height: 10px;
-      border-radius: 3px;
-      border: 1px solid rgba(55, 65, 81, 0.9);
-    }
-
-    .legend-color-a { background: rgba(37, 99, 235, 0.4); }
-    .legend-color-b { background: rgba(22, 163, 74, 0.4); }
-    .legend-color-c { background: rgba(30, 64, 175, 0.5); }
 
     /* Login overlay */
 
@@ -918,6 +1020,13 @@
     }
 
     @media (max-width: 768px) {
+      .document-row,
+      .document-editor__fields {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .document-row__actions { justify-content: flex-start; }
+      .directory-create-form,
+      .directory-manager-row { align-items: stretch; flex-direction: column; }
       .login-card {
         margin: 0 16px;
         padding: 32px 20px 28px;
@@ -976,6 +1085,7 @@
           <button class="btn btn-icon" id="nextWeekBtn" title="下一周">›</button>
         </div>
       </div>
+      <button class="btn btn-primary" id="directoryManageBtn" type="button" hidden>目录管理</button>
     </header>
 
     <main
@@ -1044,24 +1154,10 @@
       aria-labelledby="documentsTab"
       hidden
     >
-      <section class="panel documents-placeholder">功能占位</section>
+      <div id="documentsContent" class="document-directories" aria-live="polite"></div>
     </main>
 
     <footer class="app-footer">
-      <div class="legend" id="todoLegend">
-        <div class="legend-item">
-          <span class="legend-color legend-color-a"></span>
-          <span>无限期</span>
-        </div>
-        <div class="legend-item">
-          <span class="legend-color legend-color-b"></span>
-          <span>周待办</span>
-        </div>
-        <div class="legend-item">
-          <span class="legend-color legend-color-c"></span>
-          <span>日待办</span>
-        </div>
-      </div>
       <div class="footer-right">
         <span class="current-account" id="currentAccount"></span>
         <button class="btn-logout" id="adminUsersBtn" style="display:none;">账号管理</button>
@@ -1071,8 +1167,33 @@
     </footer>
   </div>
 
+  <div class="account-modal hidden" id="directoryModal" role="dialog" aria-modal="true" aria-labelledby="directoryModalTitle">
+    <div class="account-dialog">
+      <h2 id="directoryModalTitle">目录管理</h2>
+      <form id="directoryCreateForm" class="directory-create-form">
+        <input class="input" id="directoryNameInput" maxlength="20" placeholder="输入目录名称" required>
+        <button class="btn btn-primary" type="submit">新增目录</button>
+      </form>
+      <div class="account-error" id="directoryModalError" aria-live="polite"></div>
+      <div id="directoryModalBody" class="directory-manager-list"></div>
+      <div class="account-actions"><button class="btn btn-ghost" id="directoryModalCloseBtn" type="button">关闭</button></div>
+    </div>
+  </div>
+
+  <div class="account-modal hidden" id="confirmModal" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle" aria-describedby="confirmMessage">
+    <div class="account-dialog account-dialog--small">
+      <h2 id="confirmTitle">确认删除</h2>
+      <p id="confirmMessage"></p>
+      <div class="account-actions">
+        <button class="btn btn-ghost" id="confirmCancelBtn" type="button">取消</button>
+        <button class="btn btn-danger" id="confirmAcceptBtn" type="button">删除</button>
+      </div>
+    </div>
+  </div>
+
   <script src="d1-storage.js"></script>
   <script src="auth-ui.js"></script>
+  <script type="module" src="document-links-ui.js"></script>
   <script type="module" src="feature-tabs.js"></script>
   <script>
     (function () {

@@ -1,0 +1,176 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+
+import { createDocumentLinksUi } from '../document-links-ui.js';
+
+class FakeClassList {
+  constructor(owner) { this.owner = owner; }
+  add(...names) { names.forEach((name) => this.owner.classes.add(name)); }
+  remove(...names) { names.forEach((name) => this.owner.classes.delete(name)); }
+  contains(name) { return this.owner.classes.has(name); }
+  toggle(name, force) {
+    const enabled = force ?? !this.contains(name);
+    enabled ? this.add(name) : this.remove(name);
+    return enabled;
+  }
+}
+
+class FakeElement {
+  constructor(tagName = 'div', id = '') {
+    this.tagName = tagName.toUpperCase();
+    this.id = id;
+    this.children = [];
+    this.listeners = new Map();
+    this.classes = new Set();
+    this.classList = new FakeClassList(this);
+    this.dataset = {};
+    this.attributes = new Map();
+    this.textContent = '';
+    this.value = '';
+    this.disabled = false;
+    this.hidden = false;
+    this.focused = false;
+  }
+  set className(value) { this.classes = new Set(String(value).split(/\s+/).filter(Boolean)); }
+  get className() { return [...this.classes].join(' '); }
+  append(...nodes) { this.children.push(...nodes); }
+  appendChild(node) { this.append(node); return node; }
+  replaceChildren(...nodes) { this.children = [...nodes]; }
+  addEventListener(type, listener) {
+    if (!this.listeners.has(type)) this.listeners.set(type, []);
+    this.listeners.get(type).push(listener);
+  }
+  async dispatch(type, event = {}) {
+    for (const listener of this.listeners.get(type) || []) {
+      await listener({ preventDefault() {}, target: this, ...event });
+    }
+  }
+  setAttribute(name, value) { this.attributes.set(name, String(value)); }
+  getAttribute(name) { return this.attributes.get(name); }
+  focus() { this.focused = true; }
+}
+
+class FakeDocument {
+  constructor() {
+    this.elements = new Map();
+    this.body = new FakeElement('body');
+    this.activeElement = null;
+  }
+  createElement(tagName) { return new FakeElement(tagName); }
+  getElementById(id) { return this.elements.get(id) || null; }
+  add(id, tag = 'div') {
+    const element = new FakeElement(tag, id);
+    this.elements.set(id, element);
+    return element;
+  }
+}
+
+function find(root, predicate) {
+  if (predicate(root)) return root;
+  for (const child of root.children) {
+    const match = find(child, predicate);
+    if (match) return match;
+  }
+  return null;
+}
+
+function setup({ documentCount = 1 } = {}) {
+  const root = new FakeDocument();
+  const ids = [
+    'documentsContent', 'directoryManageBtn', 'directoryModal', 'directoryModalBody',
+    'directoryCreateForm', 'directoryNameInput', 'directoryModalError', 'directoryModalCloseBtn',
+    'confirmModal', 'confirmTitle', 'confirmMessage', 'confirmAcceptBtn', 'confirmCancelBtn',
+  ];
+  ids.forEach((id) => root.add(id, id.includes('Btn') ? 'button' : id.includes('Form') ? 'form' : 'div'));
+  root.getElementById('directoryModal').classList.add('hidden');
+  root.getElementById('confirmModal').classList.add('hidden');
+
+  let state = {
+    status: 'ready',
+    directories: [{ id: 'dir-1', name: '产品文档', documentCount, createdAt: '2026-01-01', updatedAt: '2026-01-01' }],
+    documents: documentCount ? [{
+      id: 'doc-1', directoryId: 'dir-1', title: '标题',
+      description: '<script>alert(1)</script>', createdAt: '2026-01-01', updatedAt: '2026-01-01',
+    }] : [],
+    editor: null,
+    error: '',
+  };
+  const calls = [];
+  let subscriber;
+  const store = {
+    getState: () => structuredClone(state),
+    subscribe(fn) { subscriber = fn; fn(this.getState()); return () => {}; },
+    load: async () => calls.push(['load']),
+    reset: () => calls.push(['reset']),
+    beginEdit: (id) => calls.push(['beginEdit', id]),
+    beginAdd: (id) => calls.push(['beginAdd', id]),
+    cancelEdit: () => calls.push(['cancelEdit']),
+    updateDraft: (patch) => calls.push(['updateDraft', patch]),
+    saveDraft: async () => calls.push(['saveDraft']),
+    deleteDocument: async (id) => calls.push(['deleteDocument', id]),
+    createDirectory: async (name) => calls.push(['createDirectory', name]),
+    renameDirectory: async (id, name) => calls.push(['renameDirectory', id, name]),
+    deleteDirectory: async (id) => calls.push(['deleteDirectory', id]),
+  };
+  const ui = createDocumentLinksUi({ root, store });
+  return {
+    root, store, calls, ui,
+    update(patch) { state = { ...state, ...patch }; subscriber(store.getState()); },
+  };
+}
+
+test('description is plain text and only title starts editing', async () => {
+  const { root, calls } = setup();
+  const content = root.getElementById('documentsContent');
+  const description = find(content, (item) => item.classList.contains('document-row__description'));
+  const title = find(content, (item) => item.classList.contains('document-row__title'));
+  assert.equal(description.textContent, '<script>alert(1)</script>');
+  assert.equal(find(content, (item) => item.tagName === 'A'), null);
+  await description.dispatch('click');
+  assert.deepEqual(calls, []);
+  await title.dispatch('click');
+  assert.deepEqual(calls, [['beginEdit', 'doc-1']]);
+});
+
+test('add calls beginAdd for its directory', async () => {
+  const { root, calls } = setup({ documentCount: 0 });
+  const add = find(root.getElementById('documentsContent'), (item) => item.dataset.action === 'add-document');
+  await add.dispatch('click');
+  assert.deepEqual(calls, [['beginAdd', 'dir-1']]);
+});
+
+test('editor renders title description directory and save cancel controls', async () => {
+  const context = setup({ documentCount: 0 });
+  context.update({ editor: {
+    mode: 'add', documentId: null, draft: { directoryId: 'dir-1', title: '', description: '' },
+    errors: {}, error: '', saving: false,
+  } });
+  const content = context.root.getElementById('documentsContent');
+  assert.ok(find(content, (item) => item.dataset.field === 'title'));
+  assert.ok(find(content, (item) => item.dataset.field === 'description'));
+  assert.ok(find(content, (item) => item.dataset.field === 'directoryId'));
+  await find(content, (item) => item.dataset.action === 'cancel-editor').dispatch('click');
+  assert.deepEqual(context.calls, [['cancelEdit']]);
+});
+
+test('non-empty directory deletion is disabled with explanatory copy', async () => {
+  const { root } = setup();
+  await root.getElementById('directoryManageBtn').dispatch('click');
+  const remove = find(root.getElementById('directoryModalBody'), (item) => item.dataset.action === 'delete-directory');
+  assert.equal(remove.disabled, true);
+  assert.match(remove.getAttribute('title'), /先删除或移动/);
+});
+
+test('confirmation runs destructive action only after acceptance and restores focus', async () => {
+  const { root, calls } = setup();
+  const remove = find(root.getElementById('documentsContent'), (item) => item.dataset.action === 'delete-document');
+  await remove.dispatch('click');
+  assert.deepEqual(calls, []);
+  await root.getElementById('confirmCancelBtn').dispatch('click');
+  assert.deepEqual(calls, []);
+  assert.equal(remove.focused, true);
+
+  await remove.dispatch('click');
+  await root.getElementById('confirmAcceptBtn').dispatch('click');
+  assert.deepEqual(calls, [['deleteDocument', 'doc-1']]);
+});
