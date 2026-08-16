@@ -216,10 +216,16 @@
     }
 
     .document-row__description-link {
+      display: inline-block;
+      max-width: min(42ch, 100%);
+      overflow: hidden;
       color: var(--accent);
       text-decoration: underline;
       text-decoration-thickness: 1px;
       text-underline-offset: 2px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      vertical-align: bottom;
       cursor: pointer;
     }
 

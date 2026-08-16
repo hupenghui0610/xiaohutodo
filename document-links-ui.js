@@ -171,6 +171,7 @@ export function createDocumentLinksUi({ root = document, store = createDocumentL
       link.setAttribute('href', segment.value);
       link.setAttribute('target', '_blank');
       link.setAttribute('rel', 'noopener noreferrer');
+      link.setAttribute('title', segment.value);
       container.append(link);
     }
     return container;

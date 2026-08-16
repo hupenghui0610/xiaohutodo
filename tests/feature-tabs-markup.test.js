@@ -59,6 +59,15 @@ test('document editor uses the compact two-row responsive layout', () => {
   assert.match(html, /@media\s*\(max-width:\s*768px\)[\s\S]*?\.document-editor__top-fields[\s\S]*?grid-template-columns:\s*minmax\(0,\s*1fr\)/);
 });
 
+test('document links truncate individually without clipping following description text', () => {
+  assert.match(html, /\.document-row__description-link\s*\{[^}]*display:\s*inline-block/);
+  assert.match(html, /\.document-row__description-link\s*\{[^}]*max-width:\s*min\(42ch,\s*100%\)/);
+  assert.match(html, /\.document-row__description-link\s*\{[^}]*overflow:\s*hidden/);
+  assert.match(html, /\.document-row__description-link\s*\{[^}]*text-overflow:\s*ellipsis/);
+  assert.match(html, /\.document-row__description-link\s*\{[^}]*white-space:\s*nowrap/);
+  assert.doesNotMatch(html, /\.document-row__description\s*\{[^}]*text-overflow:\s*ellipsis/);
+});
+
 test('document editor uses restrained field corners while actions stay pill shaped', () => {
   assert.match(html, /\.document-editor\s*\{[\s\S]*?border-radius:\s*var\(--radius-md\)/);
   assert.match(html, /\.document-editor \.input\s*\{[\s\S]*?border-radius:\s*6px/);

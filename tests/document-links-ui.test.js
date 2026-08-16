@@ -170,6 +170,7 @@ test('description renders multiple safe links without interpreting HTML', async 
   links.forEach((link) => {
     assert.equal(link.getAttribute('target'), '_blank');
     assert.equal(link.getAttribute('rel'), 'noopener noreferrer');
+    assert.equal(link.getAttribute('title'), link.getAttribute('href'));
   });
   assert.equal(find(content, (item) => item.tagName === 'SCRIPT'), null);
 
