@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createDocumentLinksUi } from '../document-links-ui.js';
+import { createDocumentLinksUi, parseDescriptionSegments } from '../document-links-ui.js';
 
 class FakeClassList {
   constructor(owner) { this.owner = owner; }
@@ -74,7 +74,12 @@ function find(root, predicate) {
   return null;
 }
 
-function setup({ documentCount = 1, directories } = {}) {
+function visibleText(node) {
+  if (!node.children.length) return node.textContent;
+  return node.children.map(visibleText).join('');
+}
+
+function setup({ documentCount = 1, directories, description = '<script>alert(1)</script>' } = {}) {
   const root = new FakeDocument();
   const ids = [
     'documentsContent', 'directoryManageBtn', 'directoryModal', 'directoryModalBody',
@@ -91,7 +96,7 @@ function setup({ documentCount = 1, directories } = {}) {
     directories: directories || [{ id: 'dir-1', name: '产品文档', documentCount, sortOrder: 0, createdAt: '2026-01-01', updatedAt: '2026-01-01' }],
     documents: documentCount ? [{
       id: 'doc-1', directoryId: 'dir-1', title: '标题',
-      description: '<script>alert(1)</script>', createdAt: '2026-01-01', updatedAt: '2026-01-01',
+      description, createdAt: '2026-01-01', updatedAt: '2026-01-01',
     }] : [],
     editor: null,
     error: '',
@@ -121,15 +126,56 @@ function setup({ documentCount = 1, directories } = {}) {
   };
 }
 
-test('description is plain text and only title starts editing', async () => {
-  const { root, calls } = setup();
+test('parser preserves text while splitting multiple HTTP links at explicit boundaries', () => {
+  const input = '主地址：https://a.example/x?id=1&tab=2，备用 https://b.example/docs#top。';
+  assert.deepEqual(parseDescriptionSegments(input), [
+    { type: 'text', value: '主地址：' },
+    { type: 'link', value: 'https://a.example/x?id=1&tab=2' },
+    { type: 'text', value: '，备用 ' },
+    { type: 'link', value: 'https://b.example/docs#top' },
+    { type: 'text', value: '。' },
+  ]);
+});
+
+test('parser trims sentence punctuation and unmatched brackets but keeps paired brackets', () => {
+  assert.deepEqual(parseDescriptionSegments('参考 https://example.com/wiki/A_(B)。另见 https://example.com/x).'), [
+    { type: 'text', value: '参考 ' },
+    { type: 'link', value: 'https://example.com/wiki/A_(B)' },
+    { type: 'text', value: '。另见 ' },
+    { type: 'link', value: 'https://example.com/x' },
+    { type: 'text', value: ').' },
+  ]);
+});
+
+test('parser leaves invalid and non-HTTP candidates as text', () => {
+  assert.deepEqual(parseDescriptionSegments('www.example.com ftp://example.com https://'), [
+    { type: 'text', value: 'www.example.com ftp://example.com https://' },
+  ]);
+});
+
+test('description renders multiple safe links without interpreting HTML', async () => {
+  const input = '<script>alert(1)</script> https://a.example，备用 https://b.example/docs';
+  const { root, calls } = setup({ description: input });
   const content = root.getElementById('documentsContent');
   const description = find(content, (item) => item.classList.contains('document-row__description'));
-  const title = find(content, (item) => item.classList.contains('document-row__title'));
-  assert.equal(description.textContent, '<script>alert(1)</script>');
-  assert.equal(find(content, (item) => item.tagName === 'A'), null);
+  const links = [];
+  const collectLinks = (node) => {
+    if (node.tagName === 'A') links.push(node);
+    node.children.forEach(collectLinks);
+  };
+  collectLinks(description);
+
+  assert.equal(visibleText(description), input);
+  assert.deepEqual(links.map((link) => link.getAttribute('href')), ['https://a.example', 'https://b.example/docs']);
+  links.forEach((link) => {
+    assert.equal(link.getAttribute('target'), '_blank');
+    assert.equal(link.getAttribute('rel'), 'noopener noreferrer');
+  });
+  assert.equal(find(content, (item) => item.tagName === 'SCRIPT'), null);
+
   await description.dispatch('click');
   assert.deepEqual(calls, []);
+  const title = find(content, (item) => item.classList.contains('document-row__title'));
   await title.dispatch('click');
   assert.deepEqual(calls, [['beginEdit', 'doc-1']]);
 });

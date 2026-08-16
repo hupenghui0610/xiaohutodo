@@ -7,6 +7,71 @@ function element(root, tagName, className = '', text = '') {
   return node;
 }
 
+const DESCRIPTION_URL_CANDIDATE = /https?:\/\/[^\s，。；！？、]+/giu;
+const TERMINAL_SENTENCE_PUNCTUATION = /[,.!?;:]+$/u;
+const BRACKET_PAIRS = { ')': '(', ']': '[', '}': '{' };
+
+function splitTerminalCharacters(candidate) {
+  let value = candidate;
+  let trailing = '';
+  const punctuation = value.match(TERMINAL_SENTENCE_PUNCTUATION)?.[0] || '';
+  if (punctuation) {
+    value = value.slice(0, -punctuation.length);
+    trailing = punctuation + trailing;
+  }
+
+  while (BRACKET_PAIRS[value.at(-1)]) {
+    const closing = value.at(-1);
+    const opening = BRACKET_PAIRS[closing];
+    const openingCount = [...value].filter((character) => character === opening).length;
+    const closingCount = [...value].filter((character) => character === closing).length;
+    if (closingCount <= openingCount) break;
+    value = value.slice(0, -1);
+    trailing = closing + trailing;
+  }
+  return { value, trailing };
+}
+
+function isValidHttpUrl(value) {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+function appendSegment(segments, type, value) {
+  if (!value) return;
+  const previous = segments.at(-1);
+  if (type === 'text' && previous?.type === 'text') {
+    previous.value += value;
+    return;
+  }
+  segments.push({ type, value });
+}
+
+export function parseDescriptionSegments(text = '') {
+  const source = String(text);
+  const segments = [];
+  let cursor = 0;
+
+  for (const match of source.matchAll(DESCRIPTION_URL_CANDIDATE)) {
+    if (match.index > cursor) appendSegment(segments, 'text', source.slice(cursor, match.index));
+    const { value, trailing } = splitTerminalCharacters(match[0]);
+    if (value && isValidHttpUrl(value)) {
+      appendSegment(segments, 'link', value);
+      appendSegment(segments, 'text', trailing);
+    } else {
+      appendSegment(segments, 'text', match[0]);
+    }
+    cursor = match.index + match[0].length;
+  }
+
+  if (cursor < source.length) appendSegment(segments, 'text', source.slice(cursor));
+  return segments.length ? segments : [{ type: 'text', value: source }];
+}
+
 export function createDocumentLinksUi({ root = document, store = createDocumentLinksStore({ request: documentApiRequest }) } = {}) {
   const content = root.getElementById('documentsContent');
   const mainApp = root.getElementById('mainApp');
@@ -95,6 +160,22 @@ export function createDocumentLinksUi({ root = document, store = createDocumentL
     return element(root, 'div', 'field-error', message || '');
   }
 
+  function renderDescription(text) {
+    const container = element(root, 'div', 'document-row__description');
+    for (const segment of parseDescriptionSegments(text)) {
+      if (segment.type === 'text') {
+        container.append(element(root, 'span', '', segment.value));
+        continue;
+      }
+      const link = element(root, 'a', 'document-row__description-link', segment.value);
+      link.setAttribute('href', segment.value);
+      link.setAttribute('target', '_blank');
+      link.setAttribute('rel', 'noopener noreferrer');
+      container.append(link);
+    }
+    return container;
+  }
+
   function renderEditor(editor, directories) {
     const wrapper = element(root, 'div', 'document-editor');
     const fields = element(root, 'div', 'document-editor__fields');
@@ -169,7 +250,7 @@ export function createDocumentLinksUi({ root = document, store = createDocumentL
     title.disabled = Boolean(state.editor);
     if (title.disabled) title.setAttribute('title', '请先保存或取消当前编辑');
     title.addEventListener('click', () => store.beginEdit(document.id));
-    const description = element(root, 'div', 'document-row__description', document.description);
+    const description = renderDescription(document.description);
     const actions = element(root, 'div', 'document-row__actions');
     const remove = button('btn btn-danger', '删除', 'delete-document');
     remove.addEventListener('click', () => openConfirmation({
