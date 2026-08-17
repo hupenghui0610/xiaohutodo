@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Extend the existing Cloudflare reminder Worker to send a daily 09:00 Feishu card reporting available virtual gift codes by course, then deploy it and send today's report once.
+**Goal:** Extend the existing Cloudflare reminder Worker to send a daily 09:00 Feishu post reporting available virtual gift codes by course, then deploy it and send today's report once.
 
-**Architecture:** Keep the feature inside `worker/reminder.js`, following the existing reminder Worker patterns. Add isolated functions for Feishu data access, aggregation, card construction, interactive message delivery, and gift-report orchestration; reuse the existing D1 recipient binding and delivery table for idempotency. The scheduled handler will run the existing todo reminder on all configured slots and the gift report only at 09:00 Asia/Shanghai.
+**Architecture:** Keep the feature inside `worker/reminder.js`, following the existing reminder Worker patterns. Add isolated functions for Feishu data access, aggregation, post construction, message delivery, and gift-report orchestration; reuse the existing D1 recipient binding and delivery table for idempotency. The scheduled handler will run the existing todo reminder on all configured slots and the gift report only at 09:00 Asia/Shanghai.
 
 **Tech Stack:** JavaScript ES modules, Node.js built-in test runner, Cloudflare Workers, Cloudflare D1, Wrangler, Feishu Open API.
 
@@ -14,14 +14,14 @@
 - Run at 09:00 Asia/Shanghai using the existing `0 1 * * *` Cron trigger.
 - Data source is Base app token `RZVbbE34jaTP2xsHh3Tcnv03n4d`, table `tbl2LVOGDfDhPqyL`.
 - Count rows where `卡号` is non-empty and `申请人` is empty, grouped by `课程名称`.
-- The card title is `虚拟赠品兑换码`; include Shanghai data time, columns `课程名称` and `剩余可用卡号`, and no total row.
+- The post title is `虚拟赠品兑换码数量`; include Shanghai data time and one `课程名称：剩余XX个` line per course, with no total row.
 - Deliver to the enabled `admin_hupenghui` recipient already stored in `feishu_reminder_recipient`.
 - Never commit either Feishu App Secret; store them only as Cloudflare Secrets.
 - Preserve all unrelated dirty-worktree changes.
 
 ---
 
-### Task 1: Add gift data aggregation and card tests
+### Task 1: Add gift data aggregation and post tests
 
 **Files:**
 - Modify: `tests/reminder.test.js`
@@ -29,12 +29,12 @@
 
 **Interfaces:**
 - Produces: `aggregateGiftCodeRows(items): Array<{ course: string, available: number }>`
-- Produces: `buildGiftReportCard({ dataTime, rows }): object`
-- Produces: `shanghaiDateTime(date): string`
+- Produces: `buildGiftReportPost({ dataTime, rows }): object`
+- Produces: `shanghaiReportTime(date): string`
 
-- [ ] **Step 1: Write failing aggregation and card tests**
+- [ ] **Step 1: Write failing aggregation and post tests**
 
-Add tests importing the three interfaces above. The aggregation test must pass Feishu text-array values such as `[{ text: '火花思维', type: 'text' }]`, combine duplicate course rows, and return rows sorted by course name. The card test must assert the title, data-time text, both column names, each course value, and absence of `合计`. Add an empty-state test asserting `暂无可用兑换码`.
+Add tests importing the three interfaces above. The aggregation test must pass Feishu text-array values such as `[{ text: '火花思维', type: 'text' }]`, combine duplicate course rows, and return rows sorted by course name. The post test must assert the title, data-time text, each course line, and absence of `合计`. Add an empty-state test asserting `暂无可用兑换码`.
 
 - [ ] **Step 2: Run tests and verify RED**
 
@@ -47,12 +47,12 @@ Expected: FAIL because the new exports do not exist.
 In `worker/reminder.js`, add:
 
 ```js
-export function shanghaiDateTime(date = new Date()) { /* YYYY-MM-DD HH:mm:ss */ }
+export function shanghaiReportTime(date = new Date()) { /* YYYY年MM月DD日 HH:mm */ }
 export function aggregateGiftCodeRows(items) { /* normalize course text and count */ }
-export function buildGiftReportCard({ dataTime, rows }) { /* Feishu schema 2.0 table card */ }
+export function buildGiftReportPost({ dataTime, rows }) { /* Feishu post */ }
 ```
 
-Use a blue card header, a Markdown data-time element, and a two-column table. Do not append a summary row.
+Use the agreed title, data-time line, separator, and one course line per row. Do not append a summary row.
 
 - [ ] **Step 4: Run tests and verify GREEN**
 
@@ -96,7 +96,7 @@ Run: `node --test tests/reminder.test.js`
 
 Expected: all tests pass.
 
-### Task 3: Add interactive sending, orchestration, and schedule tests
+### Task 3: Add post sending, orchestration, and schedule tests
 
 **Files:**
 - Modify: `tests/reminder.test.js`
@@ -109,7 +109,7 @@ Expected: all tests pass.
 
 - [ ] **Step 1: Write failing scheduling and orchestration tests**
 
-Add tests proving 01:00 UTC is the 09:00 Shanghai gift slot while the 12:30 and 17:00 slots are false. Add an orchestration test using a minimal fake D1 binding and injected HTTP responses to assert the interactive payload is addressed to the stored `open_id` and the delivery slot is distinct from the todo reminder slot.
+Add tests proving 01:00 UTC is the 09:00 Shanghai gift slot while the 12:30 and 17:00 slots are false. Add an orchestration test using a minimal fake D1 binding and injected HTTP responses to assert the post payload is addressed to the stored `open_id` and the delivery slot is distinct from the todo reminder slot.
 
 - [ ] **Step 2: Run tests and verify RED**
 
@@ -117,9 +117,9 @@ Run: `node --test tests/reminder.test.js`
 
 Expected: FAIL for missing scheduling/orchestration behavior.
 
-- [ ] **Step 3: Implement interactive sending and gift orchestration**
+- [ ] **Step 3: Implement post sending and gift orchestration**
 
-Generalize the message sender so existing `post` messages remain unchanged and the gift report sends `msg_type: 'interactive'`. Implement `runGiftReport` to load the enabled recipient, reserve an idempotent slot such as `gift-report-09:00`, read data, build the card, send it, and finish the delivery as `sent` or `failed`.
+Reuse the existing `post` message sender. Implement `runGiftReport` to load the enabled recipient, reserve an idempotent slot such as `gift-report-09:00`, read data, build the post, send it, and finish the delivery as `sent` or `failed`.
 
 Update the scheduled handler to launch the todo reminder and, only for the 09:00 Shanghai slot, the gift report as independent `waitUntil` work so one failure does not suppress the other.
 
@@ -185,7 +185,7 @@ Expected JSON: `{ "ok": true, "service": "xiaohutodo-reminder" }`.
 
 - [ ] **Step 4: Read the bound recipient and perform one operational send**
 
-Use a read-only Wrangler D1 query to obtain the enabled `open_id` for `admin_hupenghui`. Run a one-time local API invocation using the same production data query and interactive card format, and send exactly one message to that `open_id` for today's Shanghai data time.
+Use a read-only Wrangler D1 query to obtain the enabled `open_id` for `admin_hupenghui`. Run a one-time local API invocation using the same production data query and post format, and send exactly one message to that `open_id` for today's Shanghai data time.
 
 - [ ] **Step 5: Verify the operational send response**
 
