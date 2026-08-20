@@ -76,7 +76,10 @@ export function createDocumentLinksStore({ request = documentApiRequest } = {}) 
   const subscribers = new Set();
 
   function freshState() {
-    return { status: 'idle', directories: [], documents: [], editor: null, error: '' };
+    return {
+      status: 'idle', directories: [], documents: [], editor: null, error: '',
+      revisions: { directoriesRevision: 0, documentsRevision: 0 },
+    };
   }
 
   function notify() {
@@ -121,6 +124,10 @@ export function createDocumentLinksStore({ request = documentApiRequest } = {}) 
         status: 'ready',
         directories: recalculate(directoryResponse.data?.directories || [], documents),
         documents,
+        revisions: {
+          directoriesRevision: Number(directoryResponse.data?.revision || 0),
+          documentsRevision: Number(documentResponse.data?.revision || 0),
+        },
         error: '',
       });
       return true;
@@ -129,6 +136,70 @@ export function createDocumentLinksStore({ request = documentApiRequest } = {}) 
       setState({ status: 'error', error: exception.message || '加载失败' });
       return false;
     }
+  }
+
+  async function prefetch() {
+    if (state.status === 'ready') return true;
+    const operationGeneration = generation;
+    const [directoryResult, documentResult] = await Promise.allSettled([
+      request('/api/document-directories'),
+      request('/api/document-links'),
+    ]);
+    if (operationGeneration !== generation) return false;
+    if (directoryResult.status !== 'fulfilled' || documentResult.status !== 'fulfilled') {
+      const failure = directoryResult.status === 'rejected' ? directoryResult.reason : documentResult.reason;
+      setState({ error: failure?.message || '加载失败' });
+      return false;
+    }
+    const directoryResponse = directoryResult.value;
+    const documentResponse = documentResult.value;
+    const documents = sortDocuments(documentResponse.data?.documents || []);
+    setState({
+      status: 'ready',
+      directories: recalculate(directoryResponse.data?.directories || [], documents),
+      documents,
+      revisions: {
+        directoriesRevision: Number(directoryResponse.data?.revision || 0),
+        documentsRevision: Number(documentResponse.data?.revision || 0),
+      },
+      error: '',
+    });
+    return true;
+  }
+
+  function getRevisions() {
+    return { ...state.revisions };
+  }
+
+  async function sync(remoteRevisions = {}) {
+    if (state.status !== 'ready') return prefetch();
+    const operationGeneration = generation;
+    const tasks = [];
+    if (Number(remoteRevisions.directoriesRevision || 0) > state.revisions.directoriesRevision) {
+      tasks.push(['directories', request('/api/document-directories')]);
+    }
+    if (Number(remoteRevisions.documentsRevision || 0) > state.revisions.documentsRevision) {
+      tasks.push(['documents', request('/api/document-links')]);
+    }
+    if (!tasks.length) return true;
+    const results = await Promise.allSettled(tasks.map(([, promise]) => promise));
+    if (operationGeneration !== generation) return false;
+    let directories = state.directories;
+    let documents = state.documents;
+    const revisions = { ...state.revisions };
+    results.forEach((result, index) => {
+      if (result.status !== 'fulfilled') return;
+      const [domain] = tasks[index];
+      if (domain === 'directories') {
+        directories = result.value.data?.directories || [];
+        revisions.directoriesRevision = Number(result.value.data?.revision || revisions.directoriesRevision);
+      } else {
+        documents = sortDocuments(result.value.data?.documents || []);
+        revisions.documentsRevision = Number(result.value.data?.revision || revisions.documentsRevision);
+      }
+    });
+    setState({ directories: recalculate(directories, documents), documents, revisions });
+    return results.every((result) => result.status === 'fulfilled');
   }
 
   function reset() {
@@ -162,7 +233,8 @@ export function createDocumentLinksStore({ request = documentApiRequest } = {}) 
     setState({ editor: {
       mode: 'edit', documentId,
       draft: { directoryId: document.directoryId, title: document.title, description: document.description },
-      errors: {}, error: '', saving: false,
+      baseUpdatedAt: document.updatedAt,
+      errors: {}, error: '', saving: false, conflict: null,
     } });
     return true;
   }
@@ -183,7 +255,7 @@ export function createDocumentLinksStore({ request = documentApiRequest } = {}) 
     return true;
   }
 
-  async function saveDraft() {
+  async function saveDraft({ force = false } = {}) {
     if (!state.editor || state.editor.saving) return false;
     const errors = validateDraft(state.editor.draft);
     if (Object.keys(errors).length) {
@@ -195,6 +267,7 @@ export function createDocumentLinksStore({ request = documentApiRequest } = {}) 
     setState({ editor: { ...editor, saving: true, errors: {}, error: '' } });
     const body = {
       ...(editor.mode === 'edit' ? { id: editor.documentId } : {}),
+      ...(editor.mode === 'edit' ? { baseUpdatedAt: editor.baseUpdatedAt, force } : {}),
       directoryId: normalizeText(editor.draft.directoryId),
       title: normalizeText(editor.draft.title),
       description: normalizeText(editor.draft.description),
@@ -209,15 +282,45 @@ export function createDocumentLinksStore({ request = documentApiRequest } = {}) 
         ? [data.document, ...state.documents]
         : state.documents.map((item) => item.id === editor.documentId ? data.document : item);
       const sorted = sortDocuments(documents);
-      setState({ documents: sorted, directories: recalculate(state.directories, sorted), editor: null });
+      setState({
+        documents: sorted, directories: recalculate(state.directories, sorted), editor: null,
+        revisions: {
+          ...state.revisions,
+          documentsRevision: Number(data.revision ?? state.revisions.documentsRevision),
+        },
+      });
       return true;
     } catch (exception) {
       if (operationGeneration !== generation) return false;
+      if (exception.code === 'EDIT_CONFLICT') {
+        setState({ editor: {
+          ...editor, saving: false, conflict: { current: exception.current || null },
+          error: exception.message || '该内容已在其他设备更新',
+        } });
+        return false;
+      }
       setState({ editor: {
         ...editor, saving: false, errors: exception.fields || {}, error: exception.message || '保存失败',
       } });
       return false;
     }
+  }
+
+  async function resolveConflict(choice) {
+    if (!state.editor?.conflict) return false;
+    if (choice === 'overwrite') return saveDraft({ force: true });
+    if (choice !== 'remote') return false;
+    const id = state.editor.documentId;
+    const current = state.editor.conflict.current;
+    const documents = current
+      ? sortDocuments(state.documents.map((item) => item.id === id ? current : item))
+      : state.documents.filter((item) => item.id !== id);
+    setState({
+      documents,
+      directories: recalculate(state.directories, documents),
+      editor: null,
+    });
+    return true;
   }
 
   async function deleteDocument(id) {
@@ -242,7 +345,13 @@ export function createDocumentLinksStore({ request = documentApiRequest } = {}) 
         method: 'POST', body: JSON.stringify({ name: normalizeText(name) }),
       });
       if (operationGeneration !== generation) return null;
-      setState({ directories: recalculate([...state.directories, data.directory], state.documents) });
+      setState({
+        directories: recalculate([...state.directories, data.directory], state.documents),
+        revisions: {
+          ...state.revisions,
+          directoriesRevision: Number(data.revision ?? state.revisions.directoriesRevision),
+        },
+      });
       return data.directory;
     } finally {
       directoryMutationPending = false;
@@ -303,8 +412,8 @@ export function createDocumentLinksStore({ request = documentApiRequest } = {}) 
   }
 
   return {
-    getState, subscribe, load, reset, hydrateForTest,
-    beginAdd, beginEdit, cancelEdit, updateDraft, saveDraft,
+    getState, getRevisions, subscribe, load, prefetch, sync, reset, hydrateForTest,
+    beginAdd, beginEdit, cancelEdit, updateDraft, saveDraft, resolveConflict,
     deleteDocument, createDirectory, renameDirectory, deleteDirectory, moveDirectory,
   };
 }

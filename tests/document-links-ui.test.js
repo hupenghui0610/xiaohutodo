@@ -33,9 +33,33 @@ class FakeElement {
   }
   set className(value) { this.classes = new Set(String(value).split(/\s+/).filter(Boolean)); }
   get className() { return [...this.classes].join(' '); }
-  append(...nodes) { this.children.push(...nodes); }
+  append(...nodes) {
+    nodes.forEach((node) => {
+      if (node.parentNode) node.parentNode.children = node.parentNode.children.filter((item) => item !== node);
+      node.parentNode = this;
+      this.children.push(node);
+    });
+  }
   appendChild(node) { this.append(node); return node; }
-  replaceChildren(...nodes) { this.children = [...nodes]; }
+  replaceChildren(...nodes) {
+    this.children.forEach((node) => { node.parentNode = null; });
+    this.children = [];
+    this.append(...nodes);
+  }
+  remove() {
+    if (!this.parentNode) return;
+    this.parentNode.children = this.parentNode.children.filter((node) => node !== this);
+    this.parentNode = null;
+  }
+  replaceWith(node) {
+    if (!this.parentNode) return;
+    const parent = this.parentNode;
+    const index = parent.children.indexOf(this);
+    if (node.parentNode) node.remove();
+    parent.children[index] = node;
+    node.parentNode = parent;
+    this.parentNode = null;
+  }
   addEventListener(type, listener) {
     if (!this.listeners.has(type)) this.listeners.set(type, []);
     this.listeners.get(type).push(listener);
@@ -113,6 +137,7 @@ function setup({ documentCount = 1, directories, description = '<script>alert(1)
     cancelEdit: () => calls.push(['cancelEdit']),
     updateDraft: (patch) => calls.push(['updateDraft', patch]),
     saveDraft: async () => calls.push(['saveDraft']),
+    resolveConflict: async (choice) => calls.push(['resolveConflict', choice]),
     deleteDocument: async (id) => calls.push(['deleteDocument', id]),
     createDirectory: async (name) => calls.push(['createDirectory', name]),
     renameDirectory: async (id, name) => calls.push(['renameDirectory', id, name]),
@@ -363,4 +388,43 @@ test('a pending directory move blocks rename and delete actions', async () => {
   assert.equal(context.root.getElementById('directoryCreateBtn').disabled, true);
   releaseMove();
   await pending;
+});
+
+test('background collections keep unchanged document DOM nodes', () => {
+  const context = setup();
+  const content = context.root.getElementById('documentsContent');
+  const original = find(content, (node) => node.dataset.documentId === 'doc-1');
+  assert.ok(original);
+  context.update({ documents: [
+    {
+      id: 'doc-2', directoryId: 'dir-1', title: '新增', description: '新增描述',
+      createdAt: '2026-02-01', updatedAt: '2026-02-01',
+    },
+    {
+      id: 'doc-1', directoryId: 'dir-1', title: '标题', description: '<script>alert(1)</script>',
+      createdAt: '2026-01-01', updatedAt: '2026-01-01',
+    },
+  ] });
+  const after = find(content, (node) => node.dataset.documentId === 'doc-1');
+  assert.equal(after, original);
+});
+
+test('document edit conflict offers remote and overwrite actions', async () => {
+  const context = setup();
+  context.update({ editor: {
+    mode: 'edit', documentId: 'doc-1',
+    draft: { directoryId: 'dir-1', title: '本地', description: '本地描述' },
+    errors: {}, error: '该内容已在其他设备更新', saving: false,
+    conflict: { current: { id: 'doc-1', title: '远端' } },
+  } });
+  const content = context.root.getElementById('documentsContent');
+  const remote = find(content, (node) => node.dataset.action === 'use-remote');
+  const overwrite = find(content, (node) => node.dataset.action === 'overwrite-remote');
+  assert.ok(remote);
+  assert.ok(overwrite);
+  await remote.dispatch('click');
+  await overwrite.dispatch('click');
+  assert.deepEqual(context.calls.slice(-2), [
+    ['resolveConflict', 'remote'], ['resolveConflict', 'overwrite'],
+  ]);
 });

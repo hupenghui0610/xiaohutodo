@@ -22,7 +22,7 @@ function setup(options = {}) {
     if (url === '/api/document-links' && !requestOptions.method) {
       return { data: { documents: structuredClone(documents) } };
     }
-    if (options.saveError && requestOptions.method === 'POST') throw options.saveError;
+    if (options.saveError && ['POST', 'PUT'].includes(requestOptions.method)) throw options.saveError;
     if (requestOptions.method === 'POST' && url === '/api/document-links') {
       const fields = JSON.parse(requestOptions.body);
       return { document: { id: 'doc-created', ...fields, createdAt: '2026-02-01', updatedAt: '2026-02-01' } };
@@ -55,6 +55,36 @@ test('load fetches directories and documents once and sorts them', async () => {
   assert.deepEqual(calls.map((call) => call.url), ['/api/document-directories', '/api/document-links']);
   assert.deepEqual(store.getState().directories.map((item) => item.id), ['dir-old', 'dir-new']);
   assert.deepEqual(store.getState().documents.map((item) => item.id), ['doc-new', 'doc-old']);
+});
+
+test('prefetch loads both domains without exposing a loading state', async () => {
+  const { store, calls } = setup();
+  const statuses = [];
+  store.subscribe((state) => statuses.push(state.status));
+  await store.prefetch();
+  assert.deepEqual(new Set(calls.map((call) => call.url)), new Set([
+    '/api/document-directories', '/api/document-links',
+  ]));
+  assert.equal(statuses.includes('loading'), false);
+  assert.equal(store.getState().status, 'ready');
+});
+
+test('sync fetches only a changed document domain and advances its revision', async () => {
+  const calls = [];
+  let documentRevision = 1;
+  const store = createDocumentLinksStore({ request: async (url) => {
+    calls.push(url);
+    if (url === '/api/document-directories') {
+      return { data: { directories: structuredClone(directories), revision: 1 } };
+    }
+    return { data: { documents: structuredClone(documents), revision: documentRevision } };
+  } });
+  await store.prefetch();
+  calls.length = 0;
+  documentRevision = 3;
+  await store.sync({ directoriesRevision: 1, documentsRevision: 3 });
+  assert.deepEqual(calls, ['/api/document-links']);
+  assert.deepEqual(store.getRevisions(), { directoriesRevision: 1, documentsRevision: 3 });
 });
 
 test('beginAdd permits only one active editor', () => {
@@ -91,6 +121,22 @@ test('failed save retains the draft and exposes its error', async () => {
   await store.saveDraft();
   assert.equal(store.getState().editor.draft.title, '标题');
   assert.equal(store.getState().editor.error, '网络错误');
+});
+
+test('edit conflicts retain the draft and can accept the remote record', async () => {
+  const conflict = new Error('该内容已在其他设备更新');
+  conflict.code = 'EDIT_CONFLICT';
+  conflict.current = { ...documents[0], title: '远端标题', updatedAt: '2026-03-01' };
+  const { store } = setup({ saveError: conflict });
+  await store.load();
+  store.beginEdit('doc-old');
+  store.updateDraft({ title: '本地草稿' });
+  assert.equal(await store.saveDraft(), false);
+  assert.equal(store.getState().editor.draft.title, '本地草稿');
+  assert.equal(store.getState().editor.conflict.current.title, '远端标题');
+  assert.equal(await store.resolveConflict('remote'), true);
+  assert.equal(store.getState().editor, null);
+  assert.equal(store.getState().documents.find((item) => item.id === 'doc-old').title, '远端标题');
 });
 
 test('successful move preserves createdAt and changes directory', async () => {

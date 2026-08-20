@@ -232,6 +232,13 @@ export function createDocumentLinksUi({ root = document, store = createDocumentL
     const error = element(root, 'div', 'field-error document-editor__error', editor.error || '');
     error.dataset.role = 'editor-error';
     const actions = element(root, 'div', 'document-row__actions');
+    if (editor.conflict) {
+      const remote = button('btn btn-ghost', '使用远端内容', 'use-remote');
+      remote.addEventListener('click', () => store.resolveConflict('remote'));
+      const overwrite = button('btn btn-danger', '仍然覆盖', 'overwrite-remote');
+      overwrite.addEventListener('click', () => store.resolveConflict('overwrite'));
+      actions.append(remote, overwrite);
+    }
     const cancel = button('btn btn-ghost', '取消', 'cancel-editor');
     cancel.disabled = editor.saving;
     cancel.addEventListener('click', () => store.cancelEdit());
@@ -247,6 +254,7 @@ export function createDocumentLinksUi({ root = document, store = createDocumentL
 
   function renderDocumentRow(document, state) {
     const row = element(root, 'div', 'document-row');
+    row.dataset.documentId = document.id;
     const title = button('document-row__title', document.title, 'edit-document');
     title.disabled = Boolean(state.editor);
     if (title.disabled) title.setAttribute('title', '请先保存或取消当前编辑');
@@ -267,6 +275,7 @@ export function createDocumentLinksUi({ root = document, store = createDocumentL
 
   function renderDirectory(directory, state) {
     const card = element(root, 'section', 'panel document-directory');
+    card.dataset.directoryId = directory.id;
     const header = element(root, 'div', 'document-directory__header');
     const heading = element(root, 'div', 'panel-title', directory.name);
     const add = button('btn btn-primary', '添加', 'add-document');
@@ -397,15 +406,98 @@ export function createDocumentLinksUi({ root = document, store = createDocumentL
   }
 
   let previousState = null;
+
+  function hasSameEditorPlacement(left, right) {
+    if (!left && !right) return true;
+    return Boolean(left && right
+      && left.mode === right.mode
+      && left.documentId === right.documentId
+      && left.draft.directoryId === right.draft.directoryId
+      && Boolean(left.conflict) === Boolean(right.conflict));
+  }
+
+  function reconcileDocumentRows(body, directory, state) {
+    const previousDocuments = new Map((previousState?.documents || []).map((item) => [item.id, item]));
+    const existingRows = new Map(Array.from(body.children || [])
+      .filter((node) => node.dataset?.documentId)
+      .map((node) => [node.dataset.documentId, node]));
+    const nextDocuments = state.documents.filter((item) =>
+      item.directoryId === directory.id
+      && !(state.editor?.mode === 'edit' && state.editor.documentId === item.id)
+    );
+    const nextIds = new Set(nextDocuments.map((item) => item.id));
+
+    existingRows.forEach((row, id) => {
+      if (!nextIds.has(id)) row.remove();
+    });
+    nextDocuments.forEach((document) => {
+      let row = existingRows.get(document.id);
+      const previous = previousDocuments.get(document.id);
+      if (!row || JSON.stringify(previous) !== JSON.stringify(document)) {
+        const replacement = renderDocumentRow(document, state);
+        if (row) row.replaceWith(replacement);
+        row = replacement;
+      }
+      body.append(row);
+    });
+
+    const empty = Array.from(body.children || []).find((node) =>
+      node.classList?.contains('document-empty')
+    );
+    const editorBelongsHere = state.editor?.draft.directoryId === directory.id;
+    if (!nextDocuments.length && !editorBelongsHere) {
+      if (!empty) body.append(element(root, 'div', 'document-empty', '暂无文档链接'));
+    } else {
+      empty?.remove();
+    }
+  }
+
+  function reconcileReadyState(state) {
+    const existingCards = new Map(Array.from(content.children || [])
+      .filter((node) => node.dataset?.directoryId)
+      .map((node) => [node.dataset.directoryId, node]));
+    const nextIds = new Set(state.directories.map((item) => item.id));
+    existingCards.forEach((card, id) => {
+      if (!nextIds.has(id)) card.remove();
+    });
+
+    state.directories.forEach((directory) => {
+      let card = existingCards.get(directory.id);
+      if (!card) {
+        card = renderDirectory(directory, state);
+      } else {
+        const header = card.children[0];
+        const heading = header?.children[0];
+        const add = header?.children[1];
+        if (heading) heading.textContent = directory.name;
+        if (add) {
+          add.disabled = Boolean(state.editor);
+          if (add.disabled) add.setAttribute('title', '请先保存或取消当前编辑');
+        }
+        reconcileDocumentRows(card.children[1], directory, state);
+      }
+      content.append(card);
+    });
+  }
+
   function render(state) {
     const sameEditorPlacement = previousState?.editor && state.editor
       && previousState.editor.mode === state.editor.mode
       && previousState.editor.documentId === state.editor.documentId
-      && previousState.editor.draft.directoryId === state.editor.draft.directoryId;
+      && previousState.editor.draft.directoryId === state.editor.draft.directoryId
+      && Boolean(previousState.editor.conflict) === Boolean(state.editor.conflict);
     const sameCollections = previousState
       && JSON.stringify(previousState.directories) === JSON.stringify(state.directories)
       && JSON.stringify(previousState.documents) === JSON.stringify(state.documents);
     if (sameEditorPlacement && sameCollections && patchEditor(state.editor)) {
+      previousState = state;
+      return;
+    }
+    if (previousState?.status === 'ready' && state.status === 'ready'
+      && hasSameEditorPlacement(previousState.editor, state.editor)) {
+      if (state.editor) patchEditor(state.editor);
+      reconcileReadyState(state);
+      if (!directoryModal.classList.contains('hidden')) renderDirectoryManager(state);
       previousState = state;
       return;
     }
