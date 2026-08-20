@@ -40,6 +40,13 @@ test('page loads and build copies the feature tab module', () => {
   assert.match(buildScript, /'feature-tabs\.js'/);
 });
 
+test('page exposes revision-aware todo synchronization without a loading view', () => {
+  assert.match(html, /<script type="module" src="todo-sync\.js"><\/script>/);
+  assert.match(html, /window\.__todoAppSync\s*=/);
+  assert.match(html, /li\.dataset\.todoId\s*=\s*todo\.id/g);
+  assert.doesNotMatch(html, /同步待办中|正在刷新待办/);
+});
+
 test('hidden tab panels cannot be displayed by the sections layout rule', () => {
   assert.match(html, /\.sections\[hidden\]\s*\{\s*display:\s*none;/);
   assert.match(html, /\.week-nav\[hidden\][\s\S]*?#directoryManageBtn\[hidden\][\s\S]*?display:\s*none;/);

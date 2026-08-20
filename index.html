@@ -1251,7 +1251,8 @@
     </div>
   </div>
 
-  <script src="d1-storage.js"></script>
+  <script type="module" src="d1-storage.js"></script>
+  <script type="module" src="todo-sync.js"></script>
   <script src="auth-ui.js"></script>
   <script type="module" src="document-links-ui.js"></script>
   <script type="module" src="feature-tabs.js"></script>
@@ -1260,6 +1261,8 @@
       const STORAGE_KEY = "personal_todos_v1";
 
       let todos = [];
+      let activeTodoEditorId = null;
+      let todoSyncChain = Promise.resolve();
       let currentWeekStart = getWeekStart(new Date()); // 当前「查看周」的周一
       const today = stripTime(new Date());
       const todayWeekStart = getWeekStart(today);
@@ -1547,6 +1550,7 @@
         if (!t) return;
 
         const oldTitle = t.title;
+        activeTodoEditorId = id;
         
         // 找到整个 todo-left 容器
         const todoLeft = titleElement.closest('.todo-left');
@@ -1580,6 +1584,7 @@
             saveTodos();
           }
           renderAll();
+          activeTodoEditorId = null;
         }
 
         input.addEventListener("blur", saveEdit);
@@ -1620,6 +1625,7 @@
 
         list.forEach((todo) => {
           const li = document.createElement("li");
+          li.dataset.todoId = todo.id;
           li.className = "todo-item" + (todo.done ? " done" : "");
 
           const left = document.createElement("div");
@@ -1680,6 +1686,7 @@
           .sort((a, b) => (a.createdAt || "").localeCompare(b.createdAt || ""))
           .forEach((todo) => {
             const li = document.createElement("li");
+            li.dataset.todoId = todo.id;
             let cls = "todo-item";
             if (todo.done) cls += " done";
             if (!todo.done && todo.delayed) cls += " todo-item-overdue";
@@ -1836,6 +1843,7 @@
               })
               .forEach((todo) => {
                 const li = document.createElement("li");
+                li.dataset.todoId = todo.id;
                 let cls = "todo-item";
                 if (todo.done) cls += " done";
                 li.className = cls;
@@ -1952,6 +1960,29 @@
       }
 
       window.__todoAppInit = init;
+      window.__todoAppRevision = () => D1Storage.getRevision();
+      window.__todoAppSync = (revisions = {}) => {
+        const run = async () => {
+          const remoteRevision = Number(revisions.todosRevision || 0);
+          if (!initialized || remoteRevision <= D1Storage.getRevision()) return false;
+          await saveTodosChain;
+          const previousItems = todos.map((item) => ({ ...item }));
+          const protectedIds = new Set(activeTodoEditorId ? [activeTodoEditorId] : []);
+          const { items: remoteItems, revision } = await D1Storage.refreshTodos();
+          const merged = window.TodoSync.mergeTodoSnapshot(todos, remoteItems, protectedIds);
+          todos = merged.items;
+          window.TodoSync.preserveKeyedTodoNodes({
+            root: document.getElementById('todoPanel'),
+            render: renderAll,
+            previousItems,
+            nextItems: todos,
+            protectedIds,
+          });
+          return revision;
+        };
+        todoSyncChain = todoSyncChain.then(run, run);
+        return todoSyncChain;
+      };
     })();
   </script>
 </body>
