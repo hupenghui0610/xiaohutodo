@@ -1,7 +1,8 @@
 import { requireUser } from '../_lib/auth.js';
 import { error, json, readJson, requireSameOrigin } from '../_lib/http.js';
+import { mapRevisions, revisionStatement } from '../_lib/data-revisions.js';
 
-const SELECT_FIELDS = 'id, type, title, done, date, weekStart, delayed, createdAt';
+const SELECT_FIELDS = 'id, type, title, done, date, weekStart, delayed, createdAt, updatedAt';
 
 function mapTodo(row) {
   return {
@@ -13,7 +14,18 @@ function mapTodo(row) {
     weekStart: row.weekStart,
     delayed: Boolean(row.delayed),
     createdAt: row.createdAt,
+    updatedAt: row.updatedAt || row.createdAt,
   };
+}
+
+async function currentTodo(db, id, userId) {
+  return db.prepare(
+    `SELECT ${SELECT_FIELDS} FROM todos WHERE id = ? AND user_id = ?`
+  ).bind(id, userId).first();
+}
+
+async function todoRevision(db, userId) {
+  return mapRevisions(await revisionStatement(db, userId).first()).todosRevision;
 }
 
 function validateTodo(fields, creating = false) {
@@ -45,11 +57,17 @@ export async function onRequest({ request, env }) {
 
   try {
     if (method === 'GET') {
-      const { results } = await env.DB.prepare(
-        `SELECT ${SELECT_FIELDS}
-         FROM todos WHERE user_id = ? ORDER BY createdAt DESC`
-      ).bind(userId).all();
-      return json({ code: 'OK', data: { items: results.map(mapTodo) } });
+      const [listResult, revisionResult] = await env.DB.batch([
+        env.DB.prepare(
+          `SELECT ${SELECT_FIELDS}
+           FROM todos WHERE user_id = ? ORDER BY createdAt DESC`
+        ).bind(userId),
+        revisionStatement(env.DB, userId),
+      ]);
+      return json({ code: 'OK', data: {
+        items: (listResult.results || []).map(mapTodo),
+        revision: mapRevisions(revisionResult.results?.[0]).todosRevision,
+      } });
     }
 
     const body = await readJson(request);
@@ -57,10 +75,11 @@ export async function onRequest({ request, env }) {
       const validationError = validateTodo(body?.fields, true);
       if (validationError) return error('INVALID_TODO', validationError, 400);
       const fields = body.fields;
+      const timestamp = new Date().toISOString();
       await env.DB.prepare(
         `INSERT INTO todos
-         (id, user_id, type, title, done, date, weekStart, delayed, createdAt)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+         (id, user_id, type, title, done, date, weekStart, delayed, createdAt, updatedAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       ).bind(
         fields.id,
         userId,
@@ -70,9 +89,11 @@ export async function onRequest({ request, env }) {
         fields.date || null,
         fields.weekStart || null,
         fields.delayed ? 1 : 0,
-        fields.createdAt || new Date().toISOString()
+        fields.createdAt || timestamp,
+        timestamp
       ).run();
-      return json({ code: 'OK', todo: mapTodo({ ...fields }) }, 201);
+      const todo = mapTodo(await currentTodo(env.DB, fields.id, userId));
+      return json({ code: 'OK', todo, revision: await todoRevision(env.DB, userId) }, 201);
     }
 
     if (method === 'PUT') {
@@ -81,6 +102,15 @@ export async function onRequest({ request, env }) {
       const validationError = validateTodo(fields);
       if (!id || validationError) {
         return error('INVALID_TODO', validationError || '缺少待办 ID', 400);
+      }
+
+      const current = await currentTodo(env.DB, id, userId);
+      if (!current) return error('TODO_NOT_FOUND', '待办不存在', 404);
+      const baseUpdatedAt = fields.baseUpdatedAt;
+      if (fields.force !== true && baseUpdatedAt && current.updatedAt !== baseUpdatedAt) {
+        return json({
+          code: 'EDIT_CONFLICT', message: '该待办已在其他设备更新', current: mapTodo(current),
+        }, 409);
       }
 
       const updates = [];
@@ -97,12 +127,18 @@ export async function onRequest({ request, env }) {
         );
       }
       if (!updates.length) return error('NO_CHANGES', '没有可更新字段', 400);
+      const timestamp = new Date().toISOString();
+      updates.push('updatedAt = ?');
+      values.push(timestamp);
       values.push(id, userId);
       const result = await env.DB.prepare(
         `UPDATE todos SET ${updates.join(', ')} WHERE id = ? AND user_id = ?`
       ).bind(...values).run();
       if (!result.meta?.changes) return error('TODO_NOT_FOUND', '待办不存在', 404);
-      return json({ code: 'OK' });
+      return json({
+        code: 'OK', todo: mapTodo(await currentTodo(env.DB, id, userId)),
+        revision: await todoRevision(env.DB, userId),
+      });
     }
 
     if (method === 'DELETE') {
@@ -113,7 +149,7 @@ export async function onRequest({ request, env }) {
         'DELETE FROM todos WHERE id = ? AND user_id = ?'
       ).bind(id, userId).run();
       if (!result.meta?.changes) return error('TODO_NOT_FOUND', '待办不存在', 404);
-      return json({ code: 'OK' });
+      return json({ code: 'OK', revision: await todoRevision(env.DB, userId) });
     }
 
     return error('METHOD_NOT_ALLOWED', '请求方法不受支持', 405);

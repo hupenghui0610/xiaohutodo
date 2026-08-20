@@ -53,6 +53,40 @@ export function createDocumentDb(options = {}) {
       return state.revisions[values[0]] || null;
     }
 
+    if (normalized.includes('FROM todos') && normalized.includes('ORDER BY createdAt DESC')) {
+      return state.todos.filter((item) => item.user_id === values[0]).slice()
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    }
+    if (normalized.includes('FROM todos WHERE id = ? AND user_id = ?')) {
+      return state.todos.find((item) => item.id === values[0] && item.user_id === values[1]) || null;
+    }
+    if (normalized.startsWith('INSERT INTO todos')) {
+      const [id, user_id, type, title, done, date, weekStart, delayed, createdAt, updatedAt] = values;
+      state.todos.push({ id, user_id, type, title, done, date, weekStart, delayed, createdAt, updatedAt });
+      bumpRevision(user_id, 'todos_revision');
+      return changes(1);
+    }
+    if (normalized.startsWith('UPDATE todos SET')) {
+      const id = values.at(-2);
+      const userId = values.at(-1);
+      const item = state.todos.find((todo) => todo.id === id && todo.user_id === userId);
+      if (!item) return changes(0);
+      const assignments = normalized.match(/UPDATE todos SET (.+) WHERE/i)?.[1].split(', ') || [];
+      assignments.forEach((assignment, index) => {
+        const key = assignment.split(' = ')[0];
+        item[key] = values[index];
+      });
+      bumpRevision(userId, 'todos_revision');
+      return changes(1);
+    }
+    if (normalized.startsWith('DELETE FROM todos')) {
+      const index = state.todos.findIndex((item) => item.id === values[0] && item.user_id === values[1]);
+      if (index < 0) return changes(0);
+      state.todos.splice(index, 1);
+      bumpRevision(values[1], 'todos_revision');
+      return changes(1);
+    }
+
     if (normalized.startsWith('SELECT user_id FROM document_directory_states')) {
       return state.initializedUsers.has(values[0]) ? { user_id: values[0] } : null;
     }
