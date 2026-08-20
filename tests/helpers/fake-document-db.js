@@ -28,6 +28,13 @@ export function createDocumentDb(options = {}) {
     revisions: structuredClone(options.revisions || {}),
   };
 
+  function bumpRevision(userId, key) {
+    const row = state.revisions[userId] ||= {
+      todos_revision: 0, directories_revision: 0, documents_revision: 0,
+    };
+    row[key] = Number(row[key] || 0) + 1;
+  }
+
   function execute(sql, values, mode) {
     const normalized = sql.replace(/\s+/g, ' ').trim();
 
@@ -66,6 +73,7 @@ export function createDocumentDb(options = {}) {
         throw new Error('UNIQUE constraint failed: document_directories.user_id, document_directories.name_key');
       }
       state.directories.push({ id, user_id, name, name_key, sort_order, created_at, updated_at });
+      bumpRevision(user_id, 'directories_revision');
       return changes(1);
     }
     if (normalized.includes('FROM document_directories d') && normalized.includes('document_count')) {
@@ -85,6 +93,7 @@ export function createDocumentDb(options = {}) {
       const current = ordered[index];
       [current.sort_order, adjacent.sort_order] = [adjacent.sort_order, current.sort_order];
       current.updated_at = adjacent.updated_at = updatedAt;
+      bumpRevision(userId, 'directories_revision');
       return changes(2);
     }
     if (normalized.startsWith('SELECT id FROM document_directories')) {
@@ -100,13 +109,15 @@ export function createDocumentDb(options = {}) {
       return changes(1);
     }
     if (normalized.startsWith('UPDATE document_directories SET')) {
-      const [name, nameKey, updatedAt, id, userId] = values;
+      const [name, nameKey, updatedAt, id, userId, force = 1, baseUpdatedAt = ''] = values;
       const directory = state.directories.find((item) => item.id === id && item.user_id === userId);
       if (!directory) return changes(0);
+      if (!force && directory.updated_at !== baseUpdatedAt) return changes(0);
       if (state.directories.some((item) => item.user_id === userId && item.id !== id && item.name_key === nameKey)) {
         throw new Error('UNIQUE constraint failed: document_directories.user_id, document_directories.name_key');
       }
       Object.assign(directory, { name, name_key: nameKey, updated_at: updatedAt });
+      bumpRevision(userId, 'directories_revision');
       return changes(1);
     }
     if (normalized.startsWith('DELETE FROM document_directories')) {
@@ -117,6 +128,7 @@ export function createDocumentDb(options = {}) {
         return changes(0);
       }
       state.directories.splice(index, 1);
+      bumpRevision(userId, 'directories_revision');
       return changes(1);
     }
     if (normalized.startsWith('SELECT 1 FROM document_links')) {
@@ -126,9 +138,13 @@ export function createDocumentDb(options = {}) {
     if (normalized.includes('FROM document_links') && normalized.includes('ORDER BY created_at DESC')) {
       return sortedDocuments(state.documents.filter((item) => item.user_id === values[0]));
     }
+    if (normalized.startsWith('SELECT id, directory_id, title, description, created_at, updated_at FROM document_links')) {
+      return state.documents.find((doc) => doc.id === values[0] && doc.user_id === values[1]) || null;
+    }
     if (normalized.startsWith('INSERT INTO document_links')) {
       const [id, user_id, directory_id, title, description, created_at, updated_at] = values;
       state.documents.push({ id, user_id, directory_id, title, description, created_at, updated_at });
+      bumpRevision(user_id, 'documents_revision');
       return changes(1);
     }
     if (normalized.startsWith('SELECT id FROM document_links')) {
@@ -136,16 +152,19 @@ export function createDocumentDb(options = {}) {
       return item ? { id: item.id } : null;
     }
     if (normalized.startsWith('UPDATE document_links SET')) {
-      const [directory_id, title, description, updated_at, id, user_id] = values;
+      const [directory_id, title, description, updated_at, id, user_id, force = 1, baseUpdatedAt = ''] = values;
       const item = state.documents.find((doc) => doc.id === id && doc.user_id === user_id);
       if (!item) return changes(0);
+      if (!force && item.updated_at !== baseUpdatedAt) return changes(0);
       Object.assign(item, { directory_id, title, description, updated_at });
+      bumpRevision(user_id, 'documents_revision');
       return changes(1);
     }
     if (normalized.startsWith('DELETE FROM document_links')) {
       const index = state.documents.findIndex((doc) => doc.id === values[0] && doc.user_id === values[1]);
       if (index < 0) return changes(0);
       state.documents.splice(index, 1);
+      bumpRevision(values[1], 'documents_revision');
       return changes(1);
     }
 
@@ -159,7 +178,13 @@ export function createDocumentDb(options = {}) {
       first() { return Promise.resolve(execute(sql, values, 'first')); },
       all() { return Promise.resolve({ results: execute(sql, values, 'all') }); },
       run() { return Promise.resolve(execute(sql, values, 'run')); },
-      _run() { return execute(sql, values, 'batch'); },
+      _run() {
+        const result = execute(sql, values, 'batch');
+        if (/^SELECT\b/i.test(sql.trim()) || /^WITH\b/i.test(sql.trim()) && Array.isArray(result)) {
+          return { results: Array.isArray(result) ? result : (result ? [result] : []) };
+        }
+        return result;
+      },
     };
   }
 

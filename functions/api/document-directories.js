@@ -1,5 +1,6 @@
 import { requireUser } from '../_lib/auth.js';
 import { error, json, methodNotAllowed, readJson, requireSameOrigin } from '../_lib/http.js';
+import { mapRevisions, revisionStatement } from '../_lib/data-revisions.js';
 import {
   INITIAL_DIRECTORY_NAMES,
   directoryNameKey,
@@ -65,6 +66,15 @@ async function listDirectories(db, userId) {
   return results.map(mapDirectory);
 }
 
+async function directoryRevision(db, userId) {
+  return mapRevisions(await revisionStatement(db, userId).first()).directoriesRevision;
+}
+
+async function currentDirectory(db, id, userId) {
+  const items = await listDirectories(db, userId);
+  return items.find((item) => item.id === id) || null;
+}
+
 export async function onRequest({ request, env }) {
   if (!env.DB) return error('DATABASE_UNAVAILABLE', '数据库未配置', 500);
   const method = request.method;
@@ -79,7 +89,14 @@ export async function onRequest({ request, env }) {
   try {
     await ensureInitialDirectories(env.DB, userId);
     if (method === 'GET') {
-      return json({ code: 'OK', data: { directories: await listDirectories(env.DB, userId) } });
+      const [listResult, revisionResult] = await env.DB.batch([
+        env.DB.prepare(DIRECTORY_SELECT).bind(userId),
+        revisionStatement(env.DB, userId),
+      ]);
+      return json({ code: 'OK', data: {
+        directories: (listResult.results || []).map(mapDirectory),
+        revision: mapRevisions(revisionResult.results?.[0]).directoriesRevision,
+      } });
     }
 
     const body = await readJson(request);
@@ -96,7 +113,7 @@ export async function onRequest({ request, env }) {
          FROM document_directories WHERE user_id = ?`
       ).bind(id, userId, name, directoryNameKey(name), timestamp, timestamp, userId).run();
       const created = (await listDirectories(env.DB, userId)).find((item) => item.id === id);
-      return json({ code: 'OK', directory: created }, 201);
+      return json({ code: 'OK', directory: created, revision: await directoryRevision(env.DB, userId) }, 201);
     }
 
     if (method === 'PUT') {
@@ -134,20 +151,35 @@ export async function onRequest({ request, env }) {
           if (!owned) return error('DIRECTORY_NOT_FOUND', '目录不存在', 404);
           return error('DIRECTORY_MOVE_BOUNDARY', '目录已经位于边界', 400);
         }
-        return json({ code: 'OK', data: { directories: await listDirectories(env.DB, userId) } });
+        return json({ code: 'OK', data: {
+          directories: await listDirectories(env.DB, userId),
+          revision: await directoryRevision(env.DB, userId),
+        } });
       }
       const validationError = validateDirectoryName(body?.name);
       if (!id || validationError) return error('INVALID_DIRECTORY', validationError || '缺少目录 ID', 400);
+      if (!await currentDirectory(env.DB, id, userId)) {
+        return error('DIRECTORY_NOT_FOUND', '目录不存在', 404);
+      }
       const name = normalizeText(body.name);
       const timestamp = nowIso();
+      const force = body?.force === true || !normalizeText(body?.baseUpdatedAt);
       const result = await env.DB.prepare(
         `UPDATE document_directories
          SET name = ?, name_key = ?, updated_at = ?
-         WHERE id = ? AND user_id = ?`
-      ).bind(name, directoryNameKey(name), timestamp, id, userId).run();
-      if (!result.meta?.changes) return error('DIRECTORY_NOT_FOUND', '目录不存在', 404);
-      const renamed = (await listDirectories(env.DB, userId)).find((item) => item.id === id);
-      return json({ code: 'OK', directory: renamed });
+         WHERE id = ? AND user_id = ? AND (? = 1 OR updated_at = ?)`
+      ).bind(
+        name, directoryNameKey(name), timestamp, id, userId,
+        force ? 1 : 0, normalizeText(body?.baseUpdatedAt)
+      ).run();
+      if (!result.meta?.changes) {
+        return json({
+          code: 'EDIT_CONFLICT', message: '该目录已在其他设备更新',
+          current: await currentDirectory(env.DB, id, userId),
+        }, 409);
+      }
+      const renamed = await currentDirectory(env.DB, id, userId);
+      return json({ code: 'OK', directory: renamed, revision: await directoryRevision(env.DB, userId) });
     }
 
     if (method === 'DELETE') {
@@ -161,7 +193,7 @@ export async function onRequest({ request, env }) {
              WHERE directory_id = ? AND user_id = ?
            )`
       ).bind(id, userId, id, userId).run();
-      if (result.meta?.changes) return json({ code: 'OK' });
+      if (result.meta?.changes) return json({ code: 'OK', revision: await directoryRevision(env.DB, userId) });
 
       const owned = await env.DB.prepare(
         'SELECT id FROM document_directories WHERE id = ? AND user_id = ?'

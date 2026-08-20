@@ -66,6 +66,14 @@ test('list is account scoped and stably ordered newest first', async () => {
   assert.deepEqual(data.data.documents.map((item) => item.id), ['a', 'b']);
 });
 
+test('list returns the document revision from the same snapshot', async () => {
+  const { db } = createDocumentDb({ directories, revisions: {
+    'user-1': { documents_revision: 7 },
+  } });
+  const data = await (await call(db, 'GET')).json();
+  assert.equal(data.data.revision, 7);
+});
+
 test('edit moves an owned document and preserves creation time', async () => {
   const documents = [{ id: 'doc-1', user_id: 'user-1', directory_id: 'dir-1', title: '旧', description: '旧描述', created_at: '2026-01-01', updated_at: '2026-01-01' }];
   const { db } = createDocumentDb({ directories, documents });
@@ -75,6 +83,26 @@ test('edit moves an owned document and preserves creation time', async () => {
   assert.equal(item.directoryId, 'dir-2');
   assert.equal(item.createdAt, '2026-01-01');
   assert.equal(item.title, '新');
+});
+
+test('stale document edits return the current remote record and force can overwrite', async () => {
+  const documents = [{
+    id: 'doc-1', user_id: 'user-1', directory_id: 'dir-1', title: '远端', description: '远端描述',
+    created_at: '2026-01-01', updated_at: '2026-02-01',
+  }];
+  const { db } = createDocumentDb({ directories, documents });
+  const fields = {
+    id: 'doc-1', directoryId: 'dir-1', title: '本地', description: '本地描述', baseUpdatedAt: '2026-01-01',
+  };
+  const conflict = await call(db, 'PUT', fields);
+  assert.equal(conflict.status, 409);
+  const conflictData = await conflict.json();
+  assert.equal(conflictData.code, 'EDIT_CONFLICT');
+  assert.equal(conflictData.current.title, '远端');
+
+  const forced = await call(db, 'PUT', { ...fields, force: true });
+  assert.equal(forced.status, 200);
+  assert.equal((await forced.json()).document.title, '本地');
 });
 
 test('edit cannot target a foreign directory or foreign document', async () => {

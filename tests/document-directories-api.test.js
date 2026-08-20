@@ -79,6 +79,26 @@ test('list returns stable order and account-scoped document counts', async () =>
   assert.deepEqual(data.data.directories.map((item) => [item.id, item.documentCount]), [['a', 1], ['b', 0]]);
 });
 
+test('list returns the directory revision from the same snapshot', async () => {
+  const { db } = createDocumentDb({ initializedUsers: ['user-1'], revisions: {
+    'user-1': { directories_revision: 6 },
+  } });
+  const data = await (await call(db, 'GET')).json();
+  assert.equal(data.data.revision, 6);
+});
+
+test('stale directory rename returns an edit conflict', async () => {
+  const { db } = createDocumentDb({ initializedUsers: ['user-1'], directories: [{
+    id: 'dir-1', user_id: 'user-1', name: '远端', name_key: '远端', sort_order: 0,
+    created_at: '2026-01-01', updated_at: '2026-02-01',
+  }] });
+  const response = await call(db, 'PUT', {
+    id: 'dir-1', name: '本地', baseUpdatedAt: '2026-01-01',
+  });
+  assert.equal(response.status, 409);
+  assert.equal((await response.json()).code, 'EDIT_CONFLICT');
+});
+
 test('list uses saved sort order and create appends to the end', async () => {
   const { db } = createDocumentDb({ initializedUsers: ['user-1'], directories: [
     { id: 'later-created', user_id: 'user-1', name: 'A', name_key: 'a', sort_order: 0, created_at: '2026-01-02', updated_at: '2026-01-02' },
