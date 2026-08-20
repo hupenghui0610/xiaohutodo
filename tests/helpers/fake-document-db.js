@@ -22,8 +22,10 @@ export function createDocumentDb(options = {}) {
       { id: 'user-2', username: 'bob' },
     ],
     initializedUsers: new Set(options.initializedUsers || []),
+    todos: structuredClone(options.todos || []),
     directories: structuredClone(options.directories || []),
     documents: structuredClone(options.documents || []),
+    revisions: structuredClone(options.revisions || {}),
   };
 
   function execute(sql, values, mode) {
@@ -39,6 +41,10 @@ export function createDocumentDb(options = {}) {
     }
     if (normalized.startsWith('UPDATE sessions SET last_active_at')) return changes(1);
     if (normalized.startsWith('DELETE FROM sessions')) return changes(0);
+
+    if (normalized.includes('FROM user_data_revisions')) {
+      return state.revisions[values[0]] || null;
+    }
 
     if (normalized.startsWith('SELECT user_id FROM document_directory_states')) {
       return state.initializedUsers.has(values[0]) ? { user_id: values[0] } : null;
@@ -161,16 +167,20 @@ export function createDocumentDb(options = {}) {
     prepare: statement,
     async batch(statements) {
       const snapshot = structuredClone({
+        todos: state.todos,
         directories: state.directories,
         documents: state.documents,
         initializedUsers: [...state.initializedUsers],
+        revisions: state.revisions,
       });
       try {
         return statements.map((item) => item._run());
       } catch (exception) {
+        state.todos = snapshot.todos;
         state.directories = snapshot.directories;
         state.documents = snapshot.documents;
         state.initializedUsers = new Set(snapshot.initializedUsers);
+        state.revisions = snapshot.revisions;
         throw exception;
       }
     },
