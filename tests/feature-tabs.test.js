@@ -85,7 +85,7 @@ test('clicking documents switches panels and hides week navigation', () => {
   assert.equal(ui.documentsPanel.hidden, false);
   assert.equal(ui.weekNav.hidden, true);
   assert.equal(ui.directoryManageBtn.hidden, false);
-  assert.equal(ui.documentsActivatedCount, 1);
+  assert.equal(ui.documentsActivatedCount, 0);
 
   ui.todoTab.dispatch('click');
   assert.equal(ui.todoPanel.hidden, false);
@@ -94,7 +94,7 @@ test('clicking documents switches panels and hides week navigation', () => {
   assert.equal(ui.directoryManageBtn.hidden, true);
 
   ui.documentsTab.dispatch('click');
-  assert.equal(ui.documentsActivatedCount, 2);
+  assert.equal(ui.documentsActivatedCount, 0);
 });
 
 test('arrow keys activate and focus the adjacent tab', () => {

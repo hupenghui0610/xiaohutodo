@@ -9,6 +9,8 @@ const staticFiles = [
   'document-links-state.js',
   'document-links-ui.js',
   'feature-tabs.js',
+  'sync-coordinator.js',
+  'todo-sync.js',
   'icon.ico',
 ];
 

@@ -546,14 +546,20 @@ export function createDocumentLinksUi({ root = document, store = createDocumentL
   }
 
   store.subscribe(render);
-  return { load: () => store.load(), reset: () => {
-    directoryModal.classList.add('hidden');
-    confirmModal.classList.add('hidden');
-    directoryModal.inert = false;
-    mainApp.inert = false;
-    confirmError.textContent = '';
-    store.reset();
-  } };
+  return {
+    load: () => store.load(),
+    prefetch: () => store.prefetch(),
+    sync: (revisions) => store.sync(revisions),
+    getRevisions: () => store.getRevisions(),
+    reset: () => {
+      directoryModal.classList.add('hidden');
+      confirmModal.classList.add('hidden');
+      directoryModal.inert = false;
+      mainApp.inert = false;
+      confirmError.textContent = '';
+      store.reset();
+    },
+  };
 }
 
 export function initDocumentLinks(root = document) {
@@ -567,6 +573,9 @@ if (typeof document !== 'undefined') {
     if (userId && userId !== user?.id) ui.reset();
     userId = user?.id || null;
   };
-  window.__documentLinksInit = () => ui.load();
+  window.__documentLinksPrefetch = () => ui.prefetch();
+  window.__documentLinksSync = (revisions) => ui.sync(revisions);
+  window.__documentLinksRevisions = () => ui.getRevisions();
+  window.__documentLinksInit = () => ui.prefetch();
   window.__documentLinksReset = () => { userId = null; ui.reset(); };
 }

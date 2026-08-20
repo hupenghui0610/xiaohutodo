@@ -3,7 +3,6 @@ export function createFeatureTabs({
   panels,
   weekNav,
   directoryManageBtn,
-  onDocumentsActivated = () => {},
 }) {
   function activate(tabName) {
     tabs.forEach((tab) => {
@@ -18,7 +17,6 @@ export function createFeatureTabs({
     const todoActive = tabName === 'todo';
     weekNav.hidden = !todoActive;
     directoryManageBtn.hidden = todoActive;
-    if (!todoActive) onDocumentsActivated();
   }
 
   tabs.forEach((tab, index) => {
@@ -47,7 +45,6 @@ export function initFeatureTabs(root = document) {
     },
     weekNav: root.getElementById('weekNav'),
     directoryManageBtn: root.getElementById('directoryManageBtn'),
-    onDocumentsActivated: () => window.__documentLinksInit?.(),
   });
 }
 

@@ -1,6 +1,17 @@
+import { createSyncCoordinator } from './sync-coordinator.js';
+
 (function () {
   const state = { user: null, users: [] };
   const $ = (id) => document.getElementById(id);
+  const syncCoordinator = createSyncCoordinator({
+    requestStatus: async () => (await request('/api/sync-status')).data,
+    onStatus: async (revisions) => {
+      await Promise.allSettled([
+        window.__todoAppSync?.(revisions),
+        window.__documentLinksSync?.(revisions),
+      ]);
+    },
+  });
 
   function injectUi() {
     const style = document.createElement('style');
@@ -69,6 +80,8 @@
   }
 
   function showLogin(message = '') {
+    syncCoordinator.stop();
+    state.user = null;
     $('loginOverlay').classList.remove('hidden');
     $('mainApp').style.display = 'none';
     $('loginError').textContent = message;
@@ -77,13 +90,20 @@
   }
 
   function showApp(user) {
+    syncCoordinator.stop();
     state.user = user;
     $('loginOverlay').classList.add('hidden');
     $('mainApp').style.display = '';
     $('currentAccount').textContent = user.username;
     $('adminUsersBtn').style.display = user.role === 'admin' ? '' : 'none';
     window.__documentLinksReady?.(user);
-    if (window.__todoAppInit) window.__todoAppInit();
+    const userId = user.id;
+    Promise.allSettled([
+      window.__todoAppInit?.(),
+      window.__documentLinksPrefetch?.(),
+    ]).then(() => {
+      if (state.user?.id === userId) syncCoordinator.start();
+    });
   }
 
   function openPasswordModal(forced = false) {
