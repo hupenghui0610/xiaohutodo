@@ -47,6 +47,12 @@ test('page exposes revision-aware todo synchronization without a loading view', 
   assert.doesNotMatch(html, /同步待办中|正在刷新待办/);
 });
 
+test('todo save conflicts ask before explicitly overwriting remote data', () => {
+  assert.match(html, /D1Storage\.lastConflict/);
+  assert.match(html, /forceIds/);
+  assert.match(html, /其他设备.*仍然覆盖/s);
+});
+
 test('hidden tab panels cannot be displayed by the sections layout rule', () => {
   assert.match(html, /\.sections\[hidden\]\s*\{\s*display:\s*none;/);
   assert.match(html, /\.week-nav\[hidden\][\s\S]*?#directoryManageBtn\[hidden\][\s\S]*?display:\s*none;/);

@@ -25,12 +25,12 @@ function setup(options = {}) {
     if (options.saveError && ['POST', 'PUT'].includes(requestOptions.method)) throw options.saveError;
     if (requestOptions.method === 'POST' && url === '/api/document-links') {
       const fields = JSON.parse(requestOptions.body);
-      return { document: { id: 'doc-created', ...fields, createdAt: '2026-02-01', updatedAt: '2026-02-01' } };
+      return { document: { id: 'doc-created', ...fields, createdAt: '2026-02-01', updatedAt: '2026-02-01' }, revision: options.saveRevision };
     }
     if (requestOptions.method === 'PUT' && url === '/api/document-links') {
       const fields = JSON.parse(requestOptions.body);
       const original = documents.find((item) => item.id === fields.id);
-      return { document: { ...original, ...fields, updatedAt: '2026-02-01' } };
+      return { document: { ...original, ...fields, updatedAt: '2026-02-01' }, revision: options.saveRevision };
     }
     if (requestOptions.method === 'PUT' && url === '/api/document-directories') {
       if (options.moveError) throw options.moveError;
@@ -148,6 +148,15 @@ test('successful move preserves createdAt and changes directory', async () => {
   const moved = store.getState().documents.find((item) => item.id === 'doc-old');
   assert.equal(moved.directoryId, 'dir-new');
   assert.equal(moved.createdAt, createdAt);
+});
+
+test('a local document write does not skip a concurrent remote revision', async () => {
+  const { store } = setup({ saveRevision: 99 });
+  await store.load();
+  store.beginEdit('doc-old');
+  const before = store.getRevisions().documentsRevision;
+  await store.saveDraft();
+  assert.equal(store.getRevisions().documentsRevision, before);
 });
 
 test('reset clears scoped state and permits a fresh load', async () => {

@@ -48,6 +48,7 @@ async function apiRequest(method, body, query = '') {
 export const D1Storage = {
   snapshot: new Map(),
   revision: 0,
+  lastConflict: null,
 
   async loadTodos() {
     return (await this.refreshTodos()).items;
@@ -69,40 +70,51 @@ export const D1Storage = {
     return this.revision;
   },
 
-  async saveTodos(todos) {
+  async saveTodos(todos, { forceIds = new Set() } = {}) {
     const current = new Map(todos.map((todo) => [todo.id, cloneTodo(todo)]));
-    const operations = [];
-
-    for (const [id, todo] of current) {
-      const previous = this.snapshot.get(id);
-      if (!previous) {
-        operations.push(() => this.createTodo(todo));
-      } else if (JSON.stringify(previous) !== JSON.stringify(todo)) {
-        operations.push(() => this.updateTodo(id, todo));
-      }
-    }
-    for (const id of this.snapshot.keys()) {
-      if (!current.has(id)) operations.push(() => this.deleteTodo(id));
-    }
+    this.lastConflict = null;
+    let operationId = null;
 
     try {
-      for (const operation of operations) await operation();
+      for (const todo of todos) {
+        operationId = todo.id;
+        const previous = this.snapshot.get(todo.id);
+        let data = null;
+        if (!previous) {
+          data = await this.createTodo(todo);
+        } else if (JSON.stringify(previous) !== JSON.stringify(cloneTodo(todo))) {
+          data = await this.updateTodo(todo.id, todo, previous, forceIds.has(todo.id));
+        }
+        if (data?.todo) {
+          Object.assign(todo, data.todo);
+          current.set(todo.id, cloneTodo(todo));
+        }
+      }
+      for (const id of this.snapshot.keys()) {
+        operationId = id;
+        if (!current.has(id)) await this.deleteTodo(id);
+      }
       this.snapshot = current;
       return true;
     } catch (exception) {
+      if (exception.code === 'EDIT_CONFLICT') {
+        this.lastConflict = { id: operationId, current: exception.current || null };
+        return false;
+      }
       console.error('保存待办失败:', exception);
       return false;
     }
   },
 
   async createTodo(todo) {
-    await apiRequest('POST', { fields: todoPayload(todo) });
-    return true;
+    return apiRequest('POST', { fields: todoPayload(todo) });
   },
 
-  async updateTodo(id, todo) {
-    await apiRequest('PUT', { id, fields: todoPayload(todo) });
-    return true;
+  async updateTodo(id, todo, previous, force = false) {
+    return apiRequest('PUT', {
+      id,
+      fields: { ...todoPayload(todo), baseUpdatedAt: previous?.updatedAt, force },
+    });
   },
 
   async deleteTodo(id) {
@@ -113,6 +125,7 @@ export const D1Storage = {
   reset() {
     this.snapshot.clear();
     this.revision = 0;
+    this.lastConflict = null;
   },
 };
 

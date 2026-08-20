@@ -1397,9 +1397,20 @@
       async function saveTodos() {
         const run = async () => {
           try {
-            const success = await D1Storage.saveTodos(todos);
+            let success = await D1Storage.saveTodos(todos);
             if (!success) {
-              alert("保存到数据库时出错，请稍后重试。");
+              const conflict = D1Storage.lastConflict;
+              if (conflict) {
+                const overwrite = confirm('该待办已在其他设备更新，是否仍然覆盖远端内容？');
+                if (overwrite) {
+                  success = await D1Storage.saveTodos(todos, { forceIds: new Set([conflict.id]) });
+                } else {
+                  const { items } = await D1Storage.refreshTodos();
+                  todos = items;
+                  renderAll();
+                }
+              }
+              if (!success && !conflict) alert("保存到数据库时出错，请稍后重试。");
             }
             return success;
           } catch (e) {
@@ -1593,6 +1604,7 @@
             e.preventDefault();
             saveEdit();
           } else if (e.key === "Escape") {
+            activeTodoEditorId = null;
             renderAll();
           }
         });
@@ -1968,7 +1980,11 @@
           await saveTodosChain;
           const previousItems = todos.map((item) => ({ ...item }));
           const protectedIds = new Set(activeTodoEditorId ? [activeTodoEditorId] : []);
+          const protectedSnapshots = new Map([...protectedIds]
+            .map((id) => [id, D1Storage.snapshot.get(id)])
+            .filter(([, value]) => value));
           const { items: remoteItems, revision } = await D1Storage.refreshTodos();
+          protectedSnapshots.forEach((value, id) => D1Storage.snapshot.set(id, value));
           const merged = window.TodoSync.mergeTodoSnapshot(todos, remoteItems, protectedIds);
           todos = merged.items;
           window.TodoSync.preserveKeyedTodoNodes({

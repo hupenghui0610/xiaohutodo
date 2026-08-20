@@ -282,13 +282,7 @@ export function createDocumentLinksStore({ request = documentApiRequest } = {}) 
         ? [data.document, ...state.documents]
         : state.documents.map((item) => item.id === editor.documentId ? data.document : item);
       const sorted = sortDocuments(documents);
-      setState({
-        documents: sorted, directories: recalculate(state.directories, sorted), editor: null,
-        revisions: {
-          ...state.revisions,
-          documentsRevision: Number(data.revision ?? state.revisions.documentsRevision),
-        },
-      });
+      setState({ documents: sorted, directories: recalculate(state.directories, sorted), editor: null });
       return true;
     } catch (exception) {
       if (operationGeneration !== generation) return false;
@@ -345,13 +339,7 @@ export function createDocumentLinksStore({ request = documentApiRequest } = {}) 
         method: 'POST', body: JSON.stringify({ name: normalizeText(name) }),
       });
       if (operationGeneration !== generation) return null;
-      setState({
-        directories: recalculate([...state.directories, data.directory], state.documents),
-        revisions: {
-          ...state.revisions,
-          directoriesRevision: Number(data.revision ?? state.revisions.directoriesRevision),
-        },
-      });
+      setState({ directories: recalculate([...state.directories, data.directory], state.documents) });
       return data.directory;
     } finally {
       directoryMutationPending = false;
